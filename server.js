@@ -5,12 +5,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
-// Import auto-setup
-const { autoSetup } = require('./scripts/auto-setup');
-
-// Import database with test function
-const { testConnection } = require('./config/database');
-
+const { query } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const tournamentRoutes = require('./routes/tournaments');
 const golferRoutes = require('./routes/golfers');
@@ -52,6 +47,225 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Database initialization functions
+async function testConnection() {
+    try {
+        const result = await query('SELECT NOW() as current_time');
+        console.log('✅ Database connection successful');
+        return true;
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        return false;
+    }
+}
+
+async function checkIfDatabaseInitialized() {
+    try {
+        const result = await query('SELECT COUNT(*) FROM users');
+        return result.rows.length > 0;
+    } catch (error) {
+        return false;
+    }
+}
+
+async function initializeDatabase() {
+    try {
+        console.log('🚀 Initializing database...');
+        
+        await query('BEGIN');
+        
+        // Users table
+        await query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                first_name VARCHAR(100),
+                last_name VARCHAR(100),
+                is_admin BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        // Tournaments table
+        await query(`
+            CREATE TABLE IF NOT EXISTS tournaments (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                course_name VARCHAR(255),
+                location VARCHAR(255),
+                start_date TIMESTAMP NOT NULL,
+                end_date TIMESTAMP NOT NULL,
+                is_active BOOLEAN DEFAULT FALSE,
+                is_completed BOOLEAN DEFAULT FALSE,
+                prize_fund DECIMAL(12,2),
+                course_par INTEGER DEFAULT 72,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        // Golfers table
+        await query(`
+            CREATE TABLE IF NOT EXISTS golfers (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                country VARCHAR(100),
+                world_ranking INTEGER DEFAULT 999,
+                pga_tour_wins INTEGER DEFAULT 0,
+                major_wins INTEGER DEFAULT 0,
+                earnings DECIMAL(12,2) DEFAULT 0,
+                fedex_cup_points INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        
+        // Tournament Golfers table
+        await query(`
+            CREATE TABLE IF NOT EXISTS tournament_golfers (
+                id SERIAL PRIMARY KEY,
+                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                golfer_id INTEGER REFERENCES golfers(id) ON DELETE CASCADE,
+                current_score INTEGER DEFAULT 0,
+                position VARCHAR(10),
+                round1_score INTEGER,
+                round2_score INTEGER,
+                round3_score INTEGER,
+                round4_score INTEGER,
+                total_score INTEGER DEFAULT 0,
+                is_made_cut BOOLEAN DEFAULT TRUE,
+                strokes_gained_total DECIMAL(4,2),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(tournament_id, golfer_id)
+            );
+        `);
+        
+        // Teams table
+        await query(`
+            CREATE TABLE IF NOT EXISTS teams (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                team_name VARCHAR(255),
+                golfer1_id INTEGER REFERENCES golfers(id),
+                golfer2_id INTEGER REFERENCES golfers(id),
+                golfer3_id INTEGER REFERENCES golfers(id),
+                golfer4_id INTEGER REFERENCES golfers(id),
+                golfer5_id INTEGER REFERENCES golfers(id),
+                golfer6_id INTEGER REFERENCES golfers(id),
+                total_score INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, tournament_id)
+            );
+        `);
+        
+        // Create indexes
+        await query(`
+            CREATE INDEX IF NOT EXISTS idx_golfers_ranking ON golfers(world_ranking);
+            CREATE INDEX IF NOT EXISTS idx_golfers_active ON golfers(is_active);
+            CREATE INDEX IF NOT EXISTS idx_tournaments_active ON tournaments(is_active);
+            CREATE INDEX IF NOT EXISTS idx_tournaments_dates ON tournaments(start_date, end_date);
+        `);
+        
+        await query('COMMIT');
+        console.log('✅ Database tables created');
+        
+    } catch (error) {
+        await query('ROLLBACK');
+        console.error('❌ Database initialization failed:', error);
+        throw error;
+    }
+}
+
+async function addInitialData() {
+    try {
+        console.log('👤 Creating admin user...');
+        
+        const bcrypt = require('bcrypt');
+        const adminEmail = process.env.ADMIN_EMAIL || 'admin@howiesclubhouse.com';
+        const adminPassword = process.env.ADMIN_PASSWORD || 'admin123!';
+        
+        const existingAdmin = await query('SELECT id FROM users WHERE email = $1', [adminEmail]);
+        
+        if (existingAdmin.rows.length === 0) {
+            const hashedPassword = await bcrypt.hash(adminPassword, 12);
+            await query(`
+                INSERT INTO users (email, password_hash, username, first_name, last_name, is_admin) 
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `, [adminEmail, hashedPassword, 'admin', 'Admin', 'User', true]);
+            console.log('✅ Admin user created');
+        }
+        
+        // Add demo users
+        const demoUsers = [
+            { email: 'demo@howiesclubhouse.com', password: 'demo123', username: 'demo_user', firstName: 'Demo', lastName: 'User' },
+            { email: 'player1@howiesclubhouse.com', password: 'player123', username: 'golf_pro', firstName: 'Golf', lastName: 'Pro' }
+        ];
+        
+        for (const user of demoUsers) {
+            const existing = await query('SELECT id FROM users WHERE email = $1', [user.email]);
+            if (existing.rows.length === 0) {
+                const hashedPassword = await bcrypt.hash(user.password, 12);
+                await query(`
+                    INSERT INTO users (email, password_hash, username, first_name, last_name) 
+                    VALUES ($1, $2, $3, $4, $5)
+                `, [user.email, hashedPassword, user.username, user.firstName, user.lastName]);
+            }
+        }
+        console.log('✅ Demo users created');
+        
+        // Add sample golfers
+        const sampleGolfers = [
+            { name: 'Scottie Scheffler', country: 'USA', ranking: 1, wins: 12, majors: 2 },
+            { name: 'Jon Rahm', country: 'ESP', ranking: 2, wins: 9, majors: 2 },
+            { name: 'Rory McIlroy', country: 'NIR', ranking: 3, wins: 23, majors: 4 },
+            { name: 'Patrick Cantlay', country: 'USA', ranking: 4, wins: 8, majors: 0 },
+            { name: 'Xander Schauffele', country: 'USA', ranking: 5, wins: 6, majors: 2 },
+            { name: 'Viktor Hovland', country: 'NOR', ranking: 6, wins: 3, majors: 0 },
+            { name: 'Collin Morikawa', country: 'USA', ranking: 7, wins: 6, majors: 2 },
+            { name: 'Wyndham Clark', country: 'USA', ranking: 8, wins: 3, majors: 1 },
+            { name: 'Justin Thomas', country: 'USA', ranking: 9, wins: 15, majors: 2 },
+            { name: 'Jordan Spieth', country: 'USA', ranking: 10, wins: 13, majors: 3 }
+        ];
+        
+        for (const golfer of sampleGolfers) {
+            await query(`
+                INSERT INTO golfers (name, country, world_ranking, pga_tour_wins, major_wins, is_active) 
+                VALUES ($1, $2, $3, $4, $5, true)
+                ON CONFLICT (name) DO NOTHING
+            `, [golfer.name, golfer.country, golfer.ranking, golfer.wins, golfer.majors]);
+        }
+        console.log('✅ Sample golfers added');
+        
+        // Add sample tournament
+        await query(`
+            INSERT INTO tournaments (name, course_name, location, start_date, end_date, is_active, prize_fund, course_par) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT DO NOTHING
+        `, [
+            'WM Phoenix Open',
+            'TPC Scottsdale',
+            'Scottsdale, AZ',
+            new Date('2025-07-01'),
+            new Date('2025-07-04'),
+            true,
+            9100000,
+            71
+        ]);
+        console.log('✅ Sample tournament added');
+        
+    } catch (error) {
+        console.error('❌ Error adding initial data:', error);
+    }
+}
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/tournaments', tournamentRoutes);
@@ -59,7 +273,7 @@ app.use('/api/golfers', golferRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Enhanced health check endpoints
+// Health check endpoints
 app.get('/api/health', async (req, res) => {
     try {
         const dbConnected = await testConnection();
@@ -91,24 +305,16 @@ app.get('/api/health/database', async (req, res) => {
     }
 });
 
-app.get('/api/health/scraping', async (req, res) => {
+// Manual database initialization endpoint
+app.post('/api/admin/setup-database', async (req, res) => {
     try {
-        const health = await scrapingService.checkScrapingHealth();
-        res.json(health);
+        console.log('🔄 Manual database setup triggered...');
+        await initializeDatabase();
+        await addInitialData();
+        res.json({ message: 'Database setup completed successfully' });
     } catch (error) {
-        res.status(500).json({ status: 'error', message: error.message });
-    }
-});
-
-// Manual database re-initialization endpoint
-app.post('/api/admin/reinitialize-database', async (req, res) => {
-    try {
-        console.log('🔄 Manual database reinitialization triggered...');
-        await autoSetup();
-        res.json({ message: 'Database reinitialization completed successfully' });
-    } catch (error) {
-        console.error('Database reinitialization failed:', error);
-        res.status(500).json({ error: 'Failed to reinitialize database' });
+        console.error('Database setup failed:', error);
+        res.status(500).json({ error: 'Failed to setup database' });
     }
 });
 
@@ -139,35 +345,41 @@ app.use((err, req, res, next) => {
     });
 });
 
-// Enhanced startup sequence with auto-setup
+// Enhanced startup sequence
 async function startServer() {
     try {
         console.log('🚀 Starting Howies Fantasy Clubhouse...');
         console.log('🌍 Environment:', process.env.NODE_ENV || 'development');
         console.log('🔗 Database URL:', process.env.DATABASE_URL ? 'Set ✅' : 'Missing ❌');
         
-        // Test database connection first
+        // Test database connection
         console.log('🔍 Testing database connection...');
         const dbConnected = await testConnection();
         
         if (!dbConnected) {
-            console.error('💥 Failed to connect to database. Check your DATABASE_URL environment variable.');
-            console.error('Expected format: postgresql://user:password@host:port/database');
-            
-            // Wait a bit and try once more (Railway services sometimes take time to start)
+            console.error('💥 Failed to connect to database.');
             console.log('⏳ Waiting 10 seconds and retrying...');
             await new Promise(resolve => setTimeout(resolve, 10000));
             
             const dbConnectedRetry = await testConnection();
             if (!dbConnectedRetry) {
-                console.error('💥 Database connection failed after retry. Exiting...');
+                console.error('💥 Database connection failed after retry. Check your DATABASE_URL.');
                 process.exit(1);
             }
         }
         
-        // Run auto-setup to initialize database if needed
-        console.log('🔧 Running auto-setup...');
-        await autoSetup();
+        // Check if database is initialized
+        console.log('🔍 Checking if database is initialized...');
+        const isInitialized = await checkIfDatabaseInitialized();
+        
+        if (!isInitialized) {
+            console.log('🛠️ Database not initialized. Setting up...');
+            await initializeDatabase();
+            await addInitialData();
+            console.log('✅ Database setup complete!');
+        } else {
+            console.log('✅ Database already initialized');
+        }
         
         // Start server
         app.listen(PORT, () => {
