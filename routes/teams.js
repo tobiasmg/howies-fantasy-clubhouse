@@ -134,6 +134,14 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Cannot modify team - tournament has started' });
         }
         
+        // Check if team already exists
+        const existingTeam = await query(
+            'SELECT id, team_name FROM teams WHERE user_id = $1 AND tournament_id = $2',
+            [req.user.userId, tournamentId]
+        );
+        
+        const isUpdate = existingTeam.rows.length > 0;
+        
         // Insert or update team
         const result = await query(`
             INSERT INTO teams (user_id, tournament_id, team_name, golfer1_id, golfer2_id, golfer3_id, golfer4_id, golfer5_id, golfer6_id) 
@@ -150,9 +158,47 @@ router.post('/', authenticateToken, async (req, res) => {
             RETURNING *
         `, [req.user.userId, tournamentId, teamName.trim(), ...golferIds]);
         
-        res.json({ message: 'Team saved successfully', team: result.rows[0] });
+        const message = isUpdate 
+            ? 'Team updated successfully' 
+            : 'Team created successfully';
+            
+        res.json({ message, team: result.rows[0], isUpdate });
     } catch (error) {
         console.error('Create team error:', error);
+        if (error.code === '23505') { // Unique constraint violation
+            res.status(400).json({ error: 'You already have a team for this tournament' });
+        } else {
+            res.status(500).json({ error: 'Internal server error' });
+        }
+    }
+});
+
+// Check if user has team for tournament
+router.get('/check/:tournamentId', authenticateToken, async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT 
+                t.id,
+                t.team_name,
+                tour.name as tournament_name,
+                tour.start_date
+            FROM teams t
+            JOIN tournaments tour ON t.tournament_id = tour.id
+            WHERE t.user_id = $1 AND t.tournament_id = $2
+        `, [req.user.userId, req.params.tournamentId]);
+        
+        if (result.rows.length > 0) {
+            const team = result.rows[0];
+            res.json({ 
+                hasTeam: true, 
+                team: team,
+                canEdit: new Date(team.start_date) > new Date()
+            });
+        } else {
+            res.json({ hasTeam: false });
+        }
+    } catch (error) {
+        console.error('Check team error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
