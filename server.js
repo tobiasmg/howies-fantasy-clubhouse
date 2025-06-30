@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const cron = require('node-cron');
 const path = require('path');
 
 const { query } = require('./config/database');
@@ -12,7 +11,6 @@ const golferRoutes = require('./routes/golfers');
 const teamRoutes = require('./routes/teams');
 const adminRoutes = require('./routes/admin');
 const resetRoutes = require('./routes/reset');
-const migrateRoutes = require('./routes/migrate');
 
 // Initialize scraping service
 const scrapingService = require('./services/scrapingService');
@@ -329,97 +327,7 @@ async function addInitialData() {
     }
 }
 
-// Enhanced cron job setup
-function setupCronJobs() {
-    console.log('🕐 Setting up automated cron jobs...');
-
-    // Weekly player database update - Sundays at 6 AM
-    cron.schedule('0 6 * * 0', async () => {
-        console.log('🏌️ Starting weekly player database update...');
-        try {
-            await scrapingService.runManualUpdate();
-            console.log('✅ Weekly player update completed');
-        } catch (error) {
-            console.error('❌ Weekly player update failed:', error);
-        }
-    }, {
-        scheduled: true,
-        timezone: "America/Denver"
-    });
-
-    // Daily ranking updates - Every day at 6 AM
-    cron.schedule('0 6 * * *', async () => {
-        console.log('📊 Starting daily ranking update...');
-        try {
-            await scrapingService.runManualUpdate();
-            console.log('✅ Daily ranking update completed');
-        } catch (error) {
-            console.error('❌ Daily ranking update failed:', error);
-        }
-    }, {
-        scheduled: true,
-        timezone: "America/Denver"
-    });
-
-    // Live tournament score updates - Every 15 minutes during tournament days
-    cron.schedule('*/15 * * * *', async () => {
-        try {
-            const activeTournaments = await query(`
-                SELECT COUNT(*) as count 
-                FROM tournaments 
-                WHERE is_active = true 
-                AND start_date <= NOW() 
-                AND end_date >= NOW()
-            `);
-            
-            if (parseInt(activeTournaments.rows[0].count) > 0) {
-                console.log('📈 Updating live tournament scores...');
-                await scrapingService.runManualUpdate();
-            }
-        } catch (error) {
-            console.error('Score update error:', error);
-        }
-    }, {
-        scheduled: true,
-        timezone: "America/Denver"
-    });
-
-    // Database maintenance - Weekly on Mondays at midnight
-    cron.schedule('0 0 * * 1', async () => {
-        console.log('🧹 Running weekly database maintenance...');
-        try {
-            await query(`
-                DELETE FROM tournament_golfers 
-                WHERE tournament_id IN (
-                    SELECT id FROM tournaments 
-                    WHERE is_completed = true 
-                    AND end_date < NOW() - INTERVAL '30 days'
-                )
-            `);
-            
-            await query(`
-                DELETE FROM leaderboard_cache 
-                WHERE cached_at < NOW() - INTERVAL '7 days'
-            `);
-            
-            console.log('✅ Database maintenance completed');
-        } catch (error) {
-            console.error('❌ Database maintenance failed:', error);
-        }
-    }, {
-        scheduled: true,
-        timezone: "America/Denver"
-    });
-
-    console.log('✅ Cron jobs scheduled:');
-    console.log('   - Weekly player updates: Sundays at 6 AM');
-    console.log('   - Daily ranking updates: Every day at 6 AM');
-    console.log('   - Live scores: Every 15 minutes (during active tournaments)');
-    console.log('   - Database maintenance: Mondays at midnight');
-}
-
-// API Routes
-app.use('/api/migrate', migrateRoutes);
+// API Routes (basic ones first)
 app.use('/api/reset', resetRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/tournaments', tournamentRoutes);
@@ -544,9 +452,6 @@ async function startServer() {
             console.log('✅ Database already initialized');
         }
         
-        // Setup automated cron jobs
-        setupCronJobs();
-        
         // Start server
         app.listen(PORT, () => {
             console.log('');
@@ -554,9 +459,7 @@ async function startServer() {
             console.log(`🌐 Port: ${PORT}`);
             console.log(`🔗 Health Check: /api/health`);
             console.log(`🔄 Reset Tool: /reset.html`);
-            console.log(`🚀 Migration Tool: /migrate.html`);
             console.log(`🕷️ Web scraping service initialized`);
-            console.log(`🕐 Automated cron jobs running`);
             console.log('');
             console.log('🔑 Demo Accounts:');
             console.log('   Admin: admin@howiesclubhouse.com / admin123!');
