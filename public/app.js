@@ -13,11 +13,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function setupEventListeners() {
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLogin);
-    }
+    document.getElementById('loginForm').addEventListener('submit', handleLogin);
     
+    // Add register form listener if it exists
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
         registerForm.addEventListener('submit', handleRegister);
@@ -116,8 +114,8 @@ function updateNavigation(isLoggedIn) {
     
     if (isLoggedIn) {
         navLinks.innerHTML = `
-            <li><a onclick="showView('home')">Tournaments</a></li>
-            <li><a onclick="loadMyTeams()">My Teams</a></li>
+            <li><a onclick="showView('tournaments')">Tournaments</a></li>
+            <li><a onclick="showView('myTeams')">My Teams</a></li>
             <li><a onclick="showView('leaderboard')">Leaderboard</a></li>
             ${currentUser && currentUser.isAdmin ? '<li><a onclick="showView(\'admin\')">Admin</a></li>' : ''}
         `;
@@ -140,33 +138,66 @@ function updateNavigation(isLoggedIn) {
 }
 
 function showView(viewName) {
+    // Hide all views
     document.querySelectorAll('.view').forEach(view => {
         view.classList.remove('active');
     });
     
+    // Show target view
     const targetView = document.getElementById(viewName + 'View');
     if (targetView) {
         targetView.classList.add('active');
+        
+        // Load data for specific views
+        if (viewName === 'tournaments') {
+            loadTournaments(true); // Load into tournaments view
+        } else if (viewName === 'myTeams') {
+            loadMyTeams();
+        } else if (viewName === 'leaderboard') {
+            loadTournamentOptions();
+        } else if (viewName === 'admin') {
+            loadAdminStats();
+        }
     }
 }
 
-async function loadTournaments() {
+async function loadTournaments(forTournamentsView = false) {
     try {
         const response = await fetch(`${API_BASE}/tournaments`);
         const data = await response.json();
         
         tournaments = data;
-        displayTournaments(data);
+        
+        // Display in home view
+        displayTournaments(data, 'tournamentsContainer');
+        
+        // Also display in tournaments view if requested
+        if (forTournamentsView) {
+            displayTournaments(data, 'allTournamentsContainer');
+        }
+        
+        // Update tournament options for leaderboard
+        updateTournamentOptions(data);
+        
     } catch (error) {
         console.error('Error loading tournaments:', error);
+        showAlert('Failed to load tournaments', 'error');
     }
 }
 
-function displayTournaments(tournamentList) {
-    const container = document.getElementById('tournamentsContainer');
+function displayTournaments(tournamentList, containerId) {
+    const container = document.getElementById(containerId);
+    
+    if (!container) return;
     
     if (tournamentList.length === 0) {
-        container.innerHTML = '<p>No tournaments available.</p>';
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-golf-ball"></i>
+                <h3>No Tournaments Available</h3>
+                <p>Check back soon for upcoming tournaments!</p>
+            </div>
+        `;
         return;
     }
     
@@ -210,22 +241,221 @@ function displayTournaments(tournamentList) {
     }).join('');
 }
 
+function updateTournamentOptions(tournamentList) {
+    const select = document.getElementById('leaderboardTournament');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">Select Tournament</option>' +
+        tournamentList.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+}
+
+async function loadMyTeams() {
+    if (!currentUser) {
+        showView('login');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/teams/my-teams`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const teams = await response.json();
+        const container = document.getElementById('myTeamsContainer');
+        
+        if (teams.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h3>No Teams Yet</h3>
+                    <p>Create your first fantasy golf team by selecting a tournament!</p>
+                    <button class="btn" onclick="showView('tournaments')">Browse Tournaments</button>
+                </div>
+            `;
+        } else {
+            container.innerHTML = teams.map(team => `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>${team.team_name || 'Unnamed Team'}</h3>
+                        <span class="tournament-status status-${team.start_date > new Date() ? 'upcoming' : 'active'}">
+                            ${team.tournament_name}
+                        </span>
+                    </div>
+                    <p>Tournament: ${team.tournament_name}</p>
+                    <p>Date: ${new Date(team.start_date).toLocaleDateString()}</p>
+                    <p>Total Score: ${team.total_score || 0}</p>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading teams:', error);
+        showAlert('Failed to load your teams', 'error');
+    }
+}
+
+async function loadLeaderboard() {
+    const tournamentId = document.getElementById('leaderboardTournament').value;
+    const container = document.getElementById('leaderboardContainer');
+    
+    if (!tournamentId) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-trophy"></i>
+                <h3>Select a Tournament</h3>
+                <p>Choose a tournament from the dropdown to view the leaderboard.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/tournaments/${tournamentId}/leaderboard`);
+        const leaderboard = await response.json();
+        
+        if (leaderboard.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-trophy"></i>
+                    <h3>No Teams Yet</h3>
+                    <p>No teams have been created for this tournament yet.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <table class="leaderboard-table">
+                <thead>
+                    <tr>
+                        <th>Position</th>
+                        <th>Team Name</th>
+                        <th>Player</th>
+                        <th>Total Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${leaderboard.map((team, index) => `
+                        <tr>
+                            <td class="position">${index + 1}</td>
+                            <td>${team.team_name || 'Unnamed Team'}</td>
+                            <td>${team.username}</td>
+                            <td>${team.total_score || 0}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        console.error('Error loading leaderboard:', error);
+        showAlert('Failed to load leaderboard', 'error');
+    }
+}
+
+async function loadAdminStats() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/dashboard`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const stats = await response.json();
+        
+        document.getElementById('totalUsers').textContent = stats.total_users || 0;
+        document.getElementById('totalTournaments').textContent = stats.total_tournaments || 0;
+        document.getElementById('totalTeams').textContent = stats.total_teams || 0;
+        document.getElementById('activeGolfers').textContent = stats.active_golfers || 0;
+        
+    } catch (error) {
+        console.error('Error loading admin stats:', error);
+        showAlert('Failed to load admin statistics', 'error');
+    }
+}
+
+async function triggerDatabaseSetup() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        showAlert('Setting up database...', 'info');
+        const response = await fetch(`${API_BASE}/admin/setup-database`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Database setup completed successfully!', 'success');
+            loadAdminStats(); // Refresh stats
+        } else {
+            showAlert(result.error || 'Database setup failed', 'error');
+        }
+    } catch (error) {
+        console.error('Database setup error:', error);
+        showAlert('Database setup failed', 'error');
+    }
+}
+
+async function triggerScraping() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        showAlert('Updating golfer data...', 'info');
+        const response = await fetch(`${API_BASE}/admin/trigger-scraping`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Golfer data update started successfully!', 'success');
+        } else {
+            showAlert(result.error || 'Failed to trigger update', 'error');
+        }
+    } catch (error) {
+        console.error('Scraping trigger error:', error);
+        showAlert('Failed to trigger golfer data update', 'error');
+    }
+}
+
+async function checkHealth() {
+    try {
+        showAlert('Checking system health...', 'info');
+        const response = await fetch(`${API_BASE}/health`);
+        const health = await response.json();
+        
+        if (response.ok && health.status === 'OK') {
+            showAlert(`System healthy! Database: ${health.database}`, 'success');
+        } else {
+            showAlert('System health check failed', 'error');
+        }
+    } catch (error) {
+        console.error('Health check error:', error);
+        showAlert('Health check failed', 'error');
+    }
+}
+
+function loadTournamentOptions() {
+    updateTournamentOptions(tournaments);
+}
+
 function createTeam(tournamentId) {
     if (!currentUser) {
         showView('login');
         return;
     }
     
-    showAlert('Team builder coming soon!', 'info');
-}
-
-function loadMyTeams() {
-    if (!currentUser) {
-        showView('login');
-        return;
-    }
-    
-    showAlert('My Teams section coming soon!', 'info');
+    showAlert('Team builder coming soon! For now, teams are automatically created with sample data.', 'info');
 }
 
 function logout() {
@@ -237,14 +467,24 @@ function logout() {
 }
 
 function showAlert(message, type = 'info') {
+    // Remove any existing alerts
+    const existingAlerts = document.querySelectorAll('.alert');
+    existingAlerts.forEach(alert => alert.remove());
+    
     const alertDiv = document.createElement('div');
     alertDiv.className = `alert alert-${type}`;
     alertDiv.textContent = message;
+    alertDiv.style.position = 'fixed';
+    alertDiv.style.top = '20px';
+    alertDiv.style.right = '20px';
+    alertDiv.style.zIndex = '9999';
+    alertDiv.style.maxWidth = '400px';
     
-    document.body.insertBefore(alertDiv, document.body.firstChild);
+    document.body.appendChild(alertDiv);
     
     setTimeout(() => {
         alertDiv.style.opacity = '0';
+        alertDiv.style.transition = 'opacity 0.3s ease';
         setTimeout(() => alertDiv.remove(), 300);
-    }, 3000);
+    }, 4000);
 }
