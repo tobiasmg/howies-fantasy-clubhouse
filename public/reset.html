@@ -108,6 +108,7 @@
 
         <div class="current-status">
             <h3>📊 Current Database Status</h3>
+            <button onclick="testConnection()">🔌 Test Connection</button>
             <button onclick="checkStatus()">🔍 Check Current Status</button>
             <div id="status-display"></div>
         </div>
@@ -152,6 +153,24 @@
             document.getElementById('results').textContent = JSON.stringify(data, null, 2);
         }
 
+        async function testConnection() {
+            try {
+                const response = await fetch('/api/reset/test');
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Reset routes are working! Connection successful.');
+                } else {
+                    alert('❌ Connection test failed: ' + (result.error || 'Unknown error'));
+                }
+                
+                showResults(result);
+            } catch (error) {
+                alert('❌ Connection test failed: ' + error.message);
+                showResults({ error: error.message, details: 'Network or server error' });
+            }
+        }
+
         async function checkStatus() {
             try {
                 const response = await fetch('/api/reset/status');
@@ -180,8 +199,8 @@
                         </div>
                         <h4>Current Golfers:</h4>
                         <div style="max-height: 200px; overflow-y: auto; background: #f8f9fa; padding: 10px; border-radius: 5px;">
-                            ${result.firstFifteenGolfers.map(g => 
-                                `${g.name} (${g.country}) ${g.current_ranking ? `#${g.current_ranking}` : ''}`
+                            ${result.firstTwentyGolfers.map(g => 
+                                `${g.name} (${g.country}) ${g.world_ranking ? `#${g.world_ranking}` : ''} - ${g.pga_tour_wins} wins, ${g.major_wins} majors`
                             ).join('<br>')}
                         </div>
                     `;
