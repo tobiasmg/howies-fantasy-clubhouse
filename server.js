@@ -13,6 +13,7 @@ const golferRoutes = require('./routes/golfers');
 const teamRoutes = require('./routes/teams');
 const adminRoutes = require('./routes/admin');
 const resetRoutes = require('./routes/reset'); // Add this line
+const migrateRoutes = require('./routes/migrate'); // Add this line
 
 // Initialize scraping service
 const scrapingService = require('./services/scrapingService');
