@@ -7,13 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node scripts/initDatabase.js",
-    "sample-data": "node scripts/sampleData.js",
-    "migrate-owgr": "node -e \"const { execSync } = require('child_process'); execSync('psql ' + process.env.DATABASE_URL + ' -f scripts/enhanced_db_migration.sql', { stdio: 'inherit' });\"",
-    "scrape-players": "node scripts/owgrScraper.js players",
-    "scrape-scores": "node scripts/owgrScraper.js scores",
-    "scraping-health": "node scripts/owgrScraper.js health",
-    "admin-utils": "node scripts/adminUtilities.js",
-    "test-scraper": "node scripts/adminUtilities.js test"
+    "sample-data": "node scripts/sampleData.js"
   },
   "keywords": [
     "golf",
@@ -35,7 +29,8 @@
     "compression": "^1.7.4",
     "express-rate-limit": "^6.7.0",
     "node-cron": "^3.0.2",
-    "puppeteer": "^19.7.2"
+    "puppeteer": "^19.7.2",
+    "dotenv": "^16.0.3"
   },
   "devDependencies": {
     "nodemon": "^2.0.20"
