@@ -1,6 +1,9 @@
 // Global state
 let currentUser = null;
 let tournaments = [];
+let golfers = [];
+let selectedGolfers = [];
+let currentTournament = null;
 
 // API base URL
 const API_BASE = window.location.origin + '/api';
@@ -10,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
     loadTournaments();
     setupEventListeners();
+    setupTeamBuilderListeners();
 });
 
 function setupEventListeners() {
@@ -19,6 +23,26 @@ function setupEventListeners() {
     const registerForm = document.getElementById('registerForm');
     if (registerForm) {
         registerForm.addEventListener('submit', handleRegister);
+    }
+}
+
+function setupTeamBuilderListeners() {
+    // Add search listener
+    const searchInput = document.getElementById('golferSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(loadGolfers, 500));
+    }
+    
+    // Add country filter listener
+    const countryFilter = document.getElementById('countryFilter');
+    if (countryFilter) {
+        countryFilter.addEventListener('change', () => displayGolfers(golfers));
+    }
+    
+    // Add team name listener
+    const teamNameInput = document.getElementById('teamName');
+    if (teamNameInput) {
+        teamNameInput.addEventListener('input', updateSelectedGolfersDisplay);
     }
 }
 
@@ -157,6 +181,8 @@ function showView(viewName) {
             loadTournamentOptions();
         } else if (viewName === 'admin') {
             loadAdminStats();
+        } else if (viewName === 'teamBuilder') {
+            // Team builder data loaded by createTeam function
         }
     }
 }
@@ -455,7 +481,274 @@ function createTeam(tournamentId) {
         return;
     }
     
-    showAlert('Team builder coming soon! For now, teams are automatically created with sample data.', 'info');
+    // Find the tournament
+    currentTournament = tournaments.find(t => t.id === tournamentId);
+    if (!currentTournament) {
+        showAlert('Tournament not found', 'error');
+        return;
+    }
+    
+    // Check if tournament has started
+    const startDate = new Date(currentTournament.start_date);
+    if (startDate <= new Date()) {
+        showAlert('Cannot create team - tournament has already started', 'error');
+        return;
+    }
+    
+    // Reset team builder state
+    selectedGolfers = [];
+    updateSelectedGolfersDisplay();
+    
+    // Update team builder UI
+    document.getElementById('selectedTournamentName').textContent = currentTournament.name;
+    document.getElementById('selectedTournamentInfo').textContent = 
+        `${currentTournament.course_name || ''} • ${currentTournament.location || ''} • ${startDate.toLocaleDateString()}`;
+    document.getElementById('teamName').value = '';
+    
+    // Show team builder and load golfers
+    showView('teamBuilder');
+    loadGolfers();
+}
+
+async function loadGolfers() {
+    try {
+        const search = document.getElementById('golferSearch')?.value || '';
+        const country = document.getElementById('countryFilter')?.value || '';
+        
+        let url = `${API_BASE}/golfers?limit=100`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        
+        const response = await fetch(url);
+        golfers = await response.json();
+        
+        displayGolfers(golfers);
+        updateCountryFilter(golfers);
+        
+    } catch (error) {
+        console.error('Error loading golfers:', error);
+        showAlert('Failed to load golfers', 'error');
+    }
+}
+
+function displayGolfers(golferList) {
+    const container = document.getElementById('golfersContainer');
+    if (!container) return;
+    
+    // Filter by country if selected
+    const countryFilter = document.getElementById('countryFilter')?.value;
+    if (countryFilter) {
+        golferList = golferList.filter(g => g.country === countryFilter);
+    }
+    
+    if (golferList.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-search"></i>
+                <h3>No Golfers Found</h3>
+                <p>Try adjusting your search or filter criteria.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = golferList.map(golfer => {
+        const isSelected = selectedGolfers.some(s => s.id === golfer.id);
+        const isDisabled = selectedGolfers.length >= 6 && !isSelected;
+        
+        return `
+            <div class="golfer-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" 
+                 onclick="toggleGolferSelection(${golfer.id})">
+                <div class="golfer-ranking">#${golfer.world_ranking || '999'}</div>
+                <div class="golfer-name">
+                    <span class="country-flag">${getCountryFlag(golfer.country)}</span>
+                    ${golfer.name}
+                </div>
+                <div class="golfer-stats">
+                    <div class="golfer-stat">
+                        <span>Country:</span>
+                        <span>${golfer.country || 'Unknown'}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>PGA Wins:</span>
+                        <span>${golfer.pga_tour_wins || 0}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>Majors:</span>
+                        <span>${golfer.major_wins || 0}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>Ranking:</span>
+                        <span>#${golfer.world_ranking || '999'}</span>
+                    </div>
+                </div>
+                ${isSelected ? '<div style="text-align: center; color: #4CAF50; font-weight: bold; margin-top: 0.5rem;">✓ SELECTED</div>' : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleGolferSelection(golferId) {
+    const golfer = golfers.find(g => g.id === golferId);
+    if (!golfer) return;
+    
+    const isSelected = selectedGolfers.some(s => s.id === golferId);
+    
+    if (isSelected) {
+        // Remove golfer
+        selectedGolfers = selectedGolfers.filter(s => s.id !== golferId);
+    } else {
+        // Add golfer (if under limit)
+        if (selectedGolfers.length >= 6) {
+            showAlert('You can only select 6 golfers maximum', 'error');
+            return;
+        }
+        selectedGolfers.push(golfer);
+    }
+    
+    updateSelectedGolfersDisplay();
+    displayGolfers(golfers); // Refresh display
+}
+
+function updateSelectedGolfersDisplay() {
+    const count = selectedGolfers.length;
+    document.getElementById('selectedCount').textContent = count;
+    
+    const saveBtn = document.getElementById('saveTeamBtn');
+    const teamNameInput = document.getElementById('teamName');
+    
+    if (count === 6 && teamNameInput?.value.trim()) {
+        saveBtn.disabled = false;
+    } else {
+        saveBtn.disabled = true;
+    }
+    
+    const selectedCard = document.getElementById('selectedGolfersCard');
+    const selectedList = document.getElementById('selectedGolfersList');
+    
+    if (count === 0) {
+        selectedCard.style.display = 'none';
+    } else {
+        selectedCard.style.display = 'block';
+        selectedList.innerHTML = selectedGolfers.map((golfer, index) => `
+            <div class="selected-golfer-card">
+                <button class="remove-golfer" onclick="removeGolfer(${golfer.id})" title="Remove golfer">×</button>
+                <div class="golfer-name">
+                    <span class="country-flag">${getCountryFlag(golfer.country)}</span>
+                    ${golfer.name}
+                </div>
+                <div style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+                    Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+function removeGolfer(golferId) {
+    selectedGolfers = selectedGolfers.filter(s => s.id !== golferId);
+    updateSelectedGolfersDisplay();
+    displayGolfers(golfers); // Refresh display
+}
+
+function clearTeam() {
+    selectedGolfers = [];
+    updateSelectedGolfersDisplay();
+    displayGolfers(golfers); // Refresh display
+    document.getElementById('teamName').value = '';
+}
+
+async function saveTeam() {
+    if (!currentUser) {
+        showAlert('Please log in first', 'error');
+        return;
+    }
+    
+    if (selectedGolfers.length !== 6) {
+        showAlert('Please select exactly 6 golfers', 'error');
+        return;
+    }
+    
+    const teamName = document.getElementById('teamName').value.trim();
+    if (!teamName) {
+        showAlert('Please enter a team name', 'error');
+        return;
+    }
+    
+    if (!currentTournament) {
+        showAlert('No tournament selected', 'error');
+        return;
+    }
+    
+    try {
+        const golferIds = selectedGolfers.map(g => g.id);
+        
+        const response = await fetch(`${API_BASE}/teams`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                tournamentId: currentTournament.id,
+                teamName: teamName,
+                golferIds: golferIds
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Team saved successfully!', 'success');
+            showView('myTeams');
+            loadMyTeams(); // Refresh teams list
+        } else {
+            showAlert(result.error || 'Failed to save team', 'error');
+        }
+        
+    } catch (error) {
+        console.error('Error saving team:', error);
+        showAlert('Failed to save team', 'error');
+    }
+}
+
+function updateCountryFilter(golferList) {
+    const filter = document.getElementById('countryFilter');
+    if (!filter) return;
+    
+    const countries = [...new Set(golferList.map(g => g.country).filter(Boolean))].sort();
+    
+    filter.innerHTML = '<option value="">All Countries</option>' +
+        countries.map(country => `<option value="${country}">${getCountryFlag(country)} ${country}</option>`).join('');
+}
+
+function getCountryFlag(country) {
+    const flags = {
+        'USA': '🇺🇸',
+        'ESP': '🇪🇸',
+        'NIR': '🇬🇧',
+        'NOR': '🇳🇴',
+        'ENG': '🇬🇧',
+        'JPN': '🇯🇵',
+        'IRL': '🇮🇪',
+        'AUS': '🇦🇺',
+        'SCO': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+        'RSA': '🇿🇦',
+        'CAN': '🇨🇦',
+        'KOR': '🇰🇷'
+    };
+    return flags[country] || '🏌️';
+}
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 function logout() {
