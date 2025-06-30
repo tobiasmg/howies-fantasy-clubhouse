@@ -114,9 +114,18 @@
         </div>
 
         <div class="reset-option">
-            <h3>🎯 Recommended: Reset Golfers Only</h3>
-            <p>This will reset your golfers back to the original 15 sample players (Scheffler, Schauffele, etc.). 
-               It keeps all your users, teams, and tournaments safe.</p>
+            <h3>🎯 Option 1: Safe Reset (Recommended)</h3>
+            <p>This preserves existing teams but cleans up the golfer pool. 
+               Only removes golfers not currently on any team, then adds the original 15.</p>
+            <button class="success" onclick="safeReset()">
+                Safe Reset (Keeps Teams)
+            </button>
+        </div>
+
+        <div class="reset-option">
+            <h3>🔄 Option 2: Full Golfer Reset</h3>
+            <p>This resets golfers back to the original 15 sample players BUT will clear all team selections. 
+               Users will need to rebuild their teams.</p>
             <button class="warning" onclick="resetGolfersOnly()">
                 Reset to 15 Original Golfers
             </button>
@@ -211,8 +220,36 @@
             }
         }
 
+        async function safeReset() {
+            if (!confirm('This will clean up extra golfers but preserve existing teams. The original 15 golfers will be ensured in the database. Continue?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/reset/golfers-safe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Safe reset completed! Teams preserved, golfer pool cleaned up.');
+                    checkStatus(); // Refresh the status
+                } else {
+                    alert('❌ Safe reset failed: ' + result.error);
+                }
+                
+                showResults(result);
+            } catch (error) {
+                alert('❌ Safe reset failed: ' + error.message);
+                showResults({ error: error.message });
+            }
+        }
+
         async function resetGolfersOnly() {
-            if (!confirm('This will delete all current golfers and restore the original 15 sample players. Your users and teams will be preserved. Continue?')) {
+            if (!confirm('⚠️ WARNING: This will CLEAR ALL TEAM SELECTIONS and reset to exactly 15 golfers. Users will need to rebuild their teams. Continue?')) {
                 return;
             }
 
@@ -226,7 +263,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert('✅ Golfers reset successfully! You now have the original 15 sample golfers.');
+                    alert('✅ Golfers reset successfully! You now have the original 15 sample golfers. Team selections were cleared.');
                     checkStatus(); // Refresh the status
                 } else {
                     alert('❌ Reset failed: ' + result.error);
