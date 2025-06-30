@@ -25,7 +25,6 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
             scriptSrc: ["'self'", "'unsafe-inline'"],
-            scriptSrcAttr: ["'unsafe-inline'"], // Fixes onclick handlers
             imgSrc: ["'self'", "data:", "https:"],
             fontSrc: ["'self'", "https://cdnjs.cloudflare.com"]
         }
@@ -48,7 +47,7 @@ app.use(express.urlencoded({ extended: true }));
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Database initialization functions (built into server.js)
+// Database initialization functions
 async function testConnection() {
     try {
         const result = await query('SELECT NOW() as current_time');
@@ -162,23 +161,20 @@ async function initializeDatabase() {
                 golfer6_id INTEGER REFERENCES golfers(id),
                 total_score INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, tournament_id)
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
         
-        // Leaderboard cache table
+        // Ensure unique constraint exists (one team per user per tournament)
         await query(`
-            CREATE TABLE IF NOT EXISTS leaderboard_cache (
-                id SERIAL PRIMARY KEY,
-                tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
-                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-                team_name VARCHAR(255),
-                total_score INTEGER DEFAULT 0,
-                position INTEGER,
-                cached_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(tournament_id, user_id)
-            );
+            DO $ BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint 
+                    WHERE conname = 'teams_user_tournament_unique'
+                ) THEN
+                    ALTER TABLE teams ADD CONSTRAINT teams_user_tournament_unique UNIQUE (user_id, tournament_id);
+                END IF;
+            END $;
         `);
         
         // Create indexes
@@ -187,10 +183,6 @@ async function initializeDatabase() {
             CREATE INDEX IF NOT EXISTS idx_golfers_active ON golfers(is_active);
             CREATE INDEX IF NOT EXISTS idx_tournaments_active ON tournaments(is_active);
             CREATE INDEX IF NOT EXISTS idx_tournaments_dates ON tournaments(start_date, end_date);
-            CREATE INDEX IF NOT EXISTS idx_tournament_golfers_tournament ON tournament_golfers(tournament_id);
-            CREATE INDEX IF NOT EXISTS idx_tournament_golfers_golfer ON tournament_golfers(golfer_id);
-            CREATE INDEX IF NOT EXISTS idx_teams_tournament ON teams(tournament_id);
-            CREATE INDEX IF NOT EXISTS idx_teams_user ON teams(user_id);
         `);
         
         await query('COMMIT');
@@ -225,8 +217,7 @@ async function addInitialData() {
         // Add demo users
         const demoUsers = [
             { email: 'demo@howiesclubhouse.com', password: 'demo123', username: 'demo_user', firstName: 'Demo', lastName: 'User' },
-            { email: 'player1@howiesclubhouse.com', password: 'player123', username: 'golf_pro', firstName: 'Golf', lastName: 'Pro' },
-            { email: 'player2@howiesclubhouse.com', password: 'player123', username: 'weekend_warrior', firstName: 'Weekend', lastName: 'Warrior' }
+            { email: 'player1@howiesclubhouse.com', password: 'player123', username: 'golf_pro', firstName: 'Golf', lastName: 'Pro' }
         ];
         
         for (const user of demoUsers) {
@@ -252,12 +243,7 @@ async function addInitialData() {
             { name: 'Collin Morikawa', country: 'USA', ranking: 7, wins: 6, majors: 2 },
             { name: 'Wyndham Clark', country: 'USA', ranking: 8, wins: 3, majors: 1 },
             { name: 'Justin Thomas', country: 'USA', ranking: 9, wins: 15, majors: 2 },
-            { name: 'Jordan Spieth', country: 'USA', ranking: 10, wins: 13, majors: 3 },
-            { name: 'Max Homa', country: 'USA', ranking: 11, wins: 6, majors: 0 },
-            { name: 'Jason Day', country: 'AUS', ranking: 12, wins: 13, majors: 1 },
-            { name: 'Brian Harman', country: 'USA', ranking: 13, wins: 2, majors: 1 },
-            { name: 'Russell Henley', country: 'USA', ranking: 14, wins: 4, majors: 0 },
-            { name: 'Tony Finau', country: 'USA', ranking: 15, wins: 6, majors: 0 }
+            { name: 'Jordan Spieth', country: 'USA', ranking: 10, wins: 13, majors: 3 }
         ];
         
         for (const golfer of sampleGolfers) {
@@ -269,47 +255,22 @@ async function addInitialData() {
         }
         console.log('✅ Sample golfers added');
         
-        // Add sample tournaments
-        const sampleTournaments = [
-            {
-                name: 'WM Phoenix Open',
-                courseName: 'TPC Scottsdale',
-                location: 'Scottsdale, AZ',
-                startDate: new Date('2025-07-01'),
-                endDate: new Date('2025-07-04'),
-                isActive: true,
-                prizeFund: 9100000,
-                coursePar: 71
-            },
-            {
-                name: 'The Masters Tournament',
-                courseName: 'Augusta National Golf Club',
-                location: 'Augusta, GA',
-                startDate: new Date('2025-04-10'),
-                endDate: new Date('2025-04-13'),
-                isActive: false,
-                prizeFund: 18000000,
-                coursePar: 72
-            }
-        ];
-        
-        for (const tournament of sampleTournaments) {
-            await query(`
-                INSERT INTO tournaments (name, course_name, location, start_date, end_date, is_active, prize_fund, course_par) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                ON CONFLICT DO NOTHING
-            `, [
-                tournament.name, 
-                tournament.courseName, 
-                tournament.location, 
-                tournament.startDate, 
-                tournament.endDate,
-                tournament.isActive,
-                tournament.prizeFund,
-                tournament.coursePar
-            ]);
-        }
-        console.log('✅ Sample tournaments added');
+        // Add sample tournament
+        await query(`
+            INSERT INTO tournaments (name, course_name, location, start_date, end_date, is_active, prize_fund, course_par) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT DO NOTHING
+        `, [
+            'WM Phoenix Open',
+            'TPC Scottsdale',
+            'Scottsdale, AZ',
+            new Date('2025-07-01'),
+            new Date('2025-07-04'),
+            true,
+            9100000,
+            71
+        ]);
+        console.log('✅ Sample tournament added');
         
     } catch (error) {
         console.error('❌ Error adding initial data:', error);
@@ -355,16 +316,7 @@ app.get('/api/health/database', async (req, res) => {
     }
 });
 
-app.get('/api/health/scraping', async (req, res) => {
-    try {
-        const health = await scrapingService.checkScrapingHealth();
-        res.json(health);
-    } catch (error) {
-        res.status(500).json({ status: 'error', message: error.message });
-    }
-});
-
-// Manual database setup endpoint
+// Manual database initialization endpoint
 app.post('/api/admin/setup-database', async (req, res) => {
     try {
         console.log('🔄 Manual database setup triggered...');
@@ -451,8 +403,7 @@ async function startServer() {
             console.log('🔑 Demo Accounts:');
             console.log('   Admin: admin@howiesclubhouse.com / admin123!');
             console.log('   Demo:  demo@howiesclubhouse.com / demo123');
-            console.log('   Player1: player1@howiesclubhouse.com / player123');
-            console.log('   Player2: player2@howiesclubhouse.com / player123');
+            console.log('   Player: player1@howiesclubhouse.com / player123');
             console.log('');
             console.log('✅ Ready to accept connections!');
         });
