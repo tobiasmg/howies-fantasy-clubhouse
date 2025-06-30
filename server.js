@@ -11,6 +11,7 @@ const tournamentRoutes = require('./routes/tournaments');
 const golferRoutes = require('./routes/golfers');
 const teamRoutes = require('./routes/teams');
 const adminRoutes = require('./routes/admin');
+const resetRoutes = require('./routes/reset'); // Add this line
 
 // Initialize scraping service
 const scrapingService = require('./services/scrapingService');
@@ -328,6 +329,7 @@ async function addInitialData() {
 }
 
 // API Routes
+app.use('/api/reset', resetRoutes);        // Add this line
 app.use('/api/auth', authRoutes);
 app.use('/api/tournaments', tournamentRoutes);
 app.use('/api/golfers', golferRoutes);
@@ -457,6 +459,7 @@ async function startServer() {
             console.log('🏌️ Howies Fantasy Clubhouse is running!');
             console.log(`🌐 Port: ${PORT}`);
             console.log(`🔗 Health Check: /api/health`);
+            console.log(`🔄 Reset Tool: /reset.html`);     // Add this line
             console.log(`🕷️ Web scraping service initialized`);
             console.log('');
             console.log('🔑 Demo Accounts:');
