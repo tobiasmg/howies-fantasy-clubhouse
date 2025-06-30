@@ -166,6 +166,7 @@
             box-shadow: 0 5px 20px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
             cursor: pointer;
+            position: relative;
         }
 
         .tournament-card:hover {
@@ -176,6 +177,28 @@
         .tournament-card.active-tournament {
             border: 3px solid #4CAF50;
             background: linear-gradient(135deg, #f8fff8, #e8f5e8);
+        }
+
+        .tournament-card.has-team {
+            border: 2px solid #4CAF50;
+            background: linear-gradient(135deg, #f8fff8, #ffffff);
+        }
+
+        .tournament-card.has-team::before {
+            content: "✓";
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9rem;
         }
 
         .tournament-date {
@@ -635,36 +658,6 @@
             </div>
         </div>
 
-        <!-- Login View -->
-        <div id="loginView" class="view">
-            <div class="auth-container">
-                <div class="auth-header">
-                    <h2>Login</h2>
-                    <p>Welcome back to Howies Fantasy Clubhouse!</p>
-                </div>
-                
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="loginEmail">Email</label>
-                        <input type="email" id="loginEmail" class="form-control" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" class="form-control" required>
-                    </div>
-                    
-                    <button type="submit" class="btn" style="width: 100%;">Login</button>
-                </form>
-                
-                <div style="margin-top: 1rem; text-align: center;">
-                    <p><strong>Demo Accounts:</strong></p>
-                    <p>Admin: admin@howiesclubhouse.com / admin123!</p>
-                    <p>Demo: demo@howiesclubhouse.com / demo123</p>
-                </div>
-            </div>
-        </div>
-
         <!-- Team Builder View -->
         <div id="teamBuilderView" class="view">
             <div class="card">
@@ -735,6 +728,36 @@
                     <button class="btn btn-secondary" onclick="clearTeam()">
                         <i class="fas fa-trash"></i> Clear All
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Login View -->
+        <div id="loginView" class="view">
+            <div class="auth-container">
+                <div class="auth-header">
+                    <h2>Login</h2>
+                    <p>Welcome back to Howies Fantasy Clubhouse!</p>
+                </div>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" class="form-control" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" class="form-control" required>
+                    </div>
+                    
+                    <button type="submit" class="btn" style="width: 100%;">Login</button>
+                </form>
+                
+                <div style="margin-top: 1rem; text-align: center;">
+                    <p><strong>Demo Accounts:</strong></p>
+                    <p>Admin: admin@howiesclubhouse.com / admin123!</p>
+                    <p>Demo: demo@howiesclubhouse.com / demo123</p>
                 </div>
             </div>
         </div>
