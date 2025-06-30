@@ -355,6 +355,109 @@
             margin-bottom: 1rem;
         }
 
+        .golfers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .golfer-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .golfer-card:hover {
+            border-color: #2a5298;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .golfer-card.selected {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #f8fff8, #e8f5e8);
+        }
+
+        .golfer-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .golfer-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #1e3c72;
+            margin-bottom: 0.5rem;
+        }
+
+        .golfer-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .golfer-stat {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .golfer-ranking {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #2a5298;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .selected-golfers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .selected-golfer-card {
+            background: linear-gradient(135deg, #e8f5e9, #f8fff8);
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            padding: 1rem;
+            position: relative;
+        }
+
+        .remove-golfer {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .remove-golfer:hover {
+            background: #d32f2f;
+        }
+
+        .country-flag {
+            display: inline-block;
+            margin-right: 0.5rem;
+            font-size: 1.2rem;
+        }
+
         .hidden {
             display: none !important;
         }
@@ -540,6 +643,80 @@
                     <p><strong>Demo Accounts:</strong></p>
                     <p>Admin: admin@howiesclubhouse.com / admin123!</p>
                     <p>Demo: demo@howiesclubhouse.com / demo123</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Builder View -->
+        <div id="teamBuilderView" class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title" id="teamBuilderTitle">Create Your Fantasy Team</h1>
+                    <button class="btn btn-secondary" onclick="showView('tournaments')">
+                        <i class="fas fa-arrow-left"></i> Back to Tournaments
+                    </button>
+                </div>
+                
+                <div style="margin-bottom: 2rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <div>
+                            <h3 id="selectedTournamentName">Tournament Name</h3>
+                            <p id="selectedTournamentInfo">Tournament details</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 1.2rem; font-weight: bold; color: #1e3c72;">
+                                Selected: <span id="selectedCount">0</span>/6
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="teamName">Team Name</label>
+                        <input type="text" id="teamName" class="form-control" placeholder="Enter your team name" required>
+                    </div>
+                </div>
+
+                <!-- Selected Golfers -->
+                <div class="card" id="selectedGolfersCard" style="display: none;">
+                    <div class="card-header">
+                        <h3>Your Selected Team</h3>
+                    </div>
+                    <div id="selectedGolfersList" class="selected-golfers-grid">
+                        <!-- Selected golfers will appear here -->
+                    </div>
+                </div>
+
+                <!-- Golfer Search and Filter -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Available Golfers</h3>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <input type="text" id="golferSearch" class="form-control" placeholder="Search golfers..." style="width: 250px;">
+                            <select id="countryFilter" class="form-control" style="width: 150px;">
+                                <option value="">All Countries</option>
+                            </select>
+                            <button class="btn btn-small" onclick="loadGolfers()">
+                                <i class="fas fa-refresh"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="golfersContainer" class="golfers-grid">
+                        <div class="empty-state">
+                            <i class="fas fa-golf-ball"></i>
+                            <p>Loading golfers...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Team Actions -->
+                <div style="text-align: center; margin-top: 2rem;">
+                    <button class="btn" id="saveTeamBtn" onclick="saveTeam()" disabled>
+                        <i class="fas fa-save"></i> Save Team
+                    </button>
+                    <button class="btn btn-secondary" onclick="clearTeam()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
                 </div>
             </div>
         </div>
