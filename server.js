@@ -4,7 +4,6 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const cron = require('node-cron');
 const path = require('path');
-require('dotenv').config();
 
 const { query } = require('./config/database');
 const authRoutes = require('./routes/auth');
