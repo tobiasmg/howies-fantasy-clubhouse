@@ -578,11 +578,21 @@
         let currentStep = 1;
         let completedSteps = [];
         let systemData = {};
+        let authToken = null;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
+            checkAuthToken();
             updateProgress();
         });
+
+        // Check for auth token
+        function checkAuthToken() {
+            authToken = localStorage.getItem('token');
+            if (!authToken) {
+                showMessage('⚠️ Please login to your admin account first at /login', 'warning');
+            }
+        }
 
         // Step 1: System Compatibility Check
         async function checkSystemCompatibility() {
@@ -597,7 +607,9 @@
                 const healthData = await healthResponse.json();
 
                 // Get current stats
-                const statsResponse = await fetch('/api/admin/dashboard');
+                const statsResponse = await fetch('/api/admin/dashboard', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
                 const stats = await statsResponse.json();
 
                 systemData = { health: healthData, stats: stats };
@@ -616,7 +628,7 @@
                 }
             } catch (error) {
                 setStepError(1);
-                showMessage('❌ Failed to check system compatibility', 'error');
+                showMessage('❌ Failed to check system compatibility: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = '🔍 Check System Compatibility';
                 btn.disabled = false;
@@ -625,7 +637,9 @@
 
         async function viewCurrentStats() {
             try {
-                const response = await fetch('/api/admin/dashboard');
+                const response = await fetch('/api/admin/dashboard', {
+                    headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
+                });
                 const stats = await response.json();
                 displayCurrentStats(stats);
                 document.getElementById('step1-results').classList.remove('hidden');
@@ -656,12 +670,17 @@
             `;
         }
 
-        // Step 2: Database Migration
+        // Step 2: Database Migration - FIXED VERSION
         async function previewMigration() {
             showMessage('🔍 Database migration will add:\n• Enhanced golfer statistics\n• Tournament details\n• Historical tracking\n• Performance indexes', 'info');
         }
 
         async function runDatabaseMigration() {
+            if (!authToken) {
+                showMessage('❌ Please login as admin first', 'error');
+                return;
+            }
+
             setStepInProgress(2);
             const btn = document.getElementById('migrate-btn');
             btn.innerHTML = '<span class="spinner"></span>Migrating...';
@@ -672,40 +691,43 @@
             document.getElementById('step2-results').classList.remove('hidden');
 
             try {
-                addLogEntry(logContainer, 'Starting database migration...');
+                addLogEntry(logContainer, 'Starting enhanced database migration...');
                 
-                // Simulate migration steps (replace with actual API calls)
-                const migrationSteps = [
-                    'Adding PostgreSQL extensions...',
-                    'Creating new golfer statistics columns...',
-                    'Enhancing tournament table structure...',
-                    'Building historical tracking tables...',
-                    'Creating performance indexes...',
-                    'Setting up automated triggers...'
-                ];
-
-                for (let i = 0; i < migrationSteps.length; i++) {
-                    addLogEntry(logContainer, migrationSteps[i]);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-
-                // Call actual migration endpoint
-                const response = await fetch('/api/admin/setup-database', {
-                    method: 'POST'
+                // Call the correct enhanced migration endpoint
+                const response = await fetch('/api/admin/upgrade/migrate-database', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
                 });
 
-                if (response.ok) {
+                const data = await response.json();
+
+                if (response.ok && data.success) {
                     addLogEntry(logContainer, '✅ Database migration completed successfully!');
+                    addLogEntry(logContainer, 'Enhanced features added:');
+                    data.features.forEach(feature => {
+                        addLogEntry(logContainer, `  • ${feature}`);
+                    });
+                    
                     completeStep(2);
                     enableStep(3);
                     showMessage('✅ Database successfully upgraded!', 'success');
                 } else {
-                    throw new Error('Migration failed');
+                    throw new Error(data.error || data.details || 'Migration failed');
                 }
             } catch (error) {
                 addLogEntry(logContainer, '❌ Migration failed: ' + error.message);
+                addLogEntry(logContainer, '');
+                addLogEntry(logContainer, '🔧 Troubleshooting suggestions:');
+                addLogEntry(logContainer, '  • Check that your database user has CREATE/ALTER permissions');
+                addLogEntry(logContainer, '  • Ensure PostgreSQL version is 12 or higher');
+                addLogEntry(logContainer, '  • Try refreshing the page and running again');
+                addLogEntry(logContainer, '  • Check Railway logs for detailed error information');
+                
                 setStepError(2);
-                showMessage('❌ Database migration failed', 'error');
+                showMessage('❌ Database migration failed: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = '🔧 Upgrade Database Schema';
                 btn.disabled = false;
@@ -717,10 +739,16 @@
             try {
                 showMessage('🧪 Testing connections to OWGR, ESPN, and PGA Tour...', 'info');
                 
-                const response = await fetch('/api/admin/scraping/health');
+                const response = await fetch('/api/admin/upgrade/test-connections', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
                 const data = await response.json();
                 
-                if (data.health && data.health.status === 'healthy') {
+                if (data.success) {
                     showMessage('✅ All scraping connections successful!', 'success');
                 } else {
                     showMessage('⚠️ Some connection issues detected', 'warning');
@@ -742,18 +770,28 @@
 
             try {
                 addLogEntry(logContainer, 'Installing enhanced scraping service...');
-                addLogEntry(logContainer, 'Configuring multi-source data collection...');
-                addLogEntry(logContainer, 'Setting up automated scheduling...');
-                addLogEntry(logContainer, 'Installing error handling systems...');
+                
+                const response = await fetch('/api/admin/upgrade/install-scraping', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
 
-                // This would typically involve updating server files
-                // For now, we'll simulate and trigger any available endpoints
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                const data = await response.json();
 
-                addLogEntry(logContainer, '✅ Enhanced scraping service installed!');
-                completeStep(3);
-                enableStep(4);
-                showMessage('✅ Scraping service successfully installed!', 'success');
+                if (response.ok && data.success) {
+                    addLogEntry(logContainer, '✅ Enhanced scraping service installed!');
+                    data.features.forEach(feature => {
+                        addLogEntry(logContainer, `  • ${feature}`);
+                    });
+                    completeStep(3);
+                    enableStep(4);
+                    showMessage('✅ Scraping service successfully installed!', 'success');
+                } else {
+                    throw new Error(data.error || 'Installation failed');
+                }
             } catch (error) {
                 addLogEntry(logContainer, '❌ Installation failed: ' + error.message);
                 setStepError(3);
@@ -782,27 +820,27 @@
             try {
                 addLogEntry(logContainer, 'Starting professional data load...');
                 
-                // Trigger the actual scraping update
-                const response = await fetch('/api/admin/trigger-scraping', {
-                    method: 'POST'
+                const response = await fetch('/api/admin/upgrade/load-professional-data', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
                 });
 
-                if (response.ok) {
-                    addLogEntry(logContainer, 'Downloading golfer rankings from OWGR...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    addLogEntry(logContainer, 'Fetching player statistics from ESPN...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    
-                    addLogEntry(logContainer, 'Loading tournament schedules...');
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                    
+                const data = await response.json();
+
+                if (response.ok && data.success) {
                     addLogEntry(logContainer, '✅ Professional data loaded successfully!');
+                    addLogEntry(logContainer, `Stats: ${data.stats.total_processed} golfers processed`);
+                    addLogEntry(logContainer, `New golfers: ${data.stats.new_golfers}`);
+                    addLogEntry(logContainer, `Updated golfers: ${data.stats.updated_golfers}`);
+                    
                     completeStep(4);
                     enableStep(5);
                     showMessage('✅ Professional golfer data loaded!', 'success');
                 } else {
-                    throw new Error('Data loading failed');
+                    throw new Error(data.error || 'Data loading failed');
                 }
             } catch (error) {
                 addLogEntry(logContainer, '❌ Data loading failed: ' + error.message);
@@ -844,7 +882,7 @@
 
         function openDashboard() {
             // In a real implementation, this would open the new dashboard
-            window.open('/admin-dashboard.html', '_blank');
+            showMessage('🎛️ Enhanced admin features now available in your regular admin area!', 'success');
         }
 
         // Step 6: Verification
@@ -855,57 +893,68 @@
             btn.disabled = true;
 
             try {
-                // Check system health
-                const healthResponse = await fetch('/api/health');
-                const healthData = await healthResponse.json();
+                const response = await fetch('/api/admin/upgrade/verify', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
 
-                // Check scraping service
-                const scrapingResponse = await fetch('/api/health/scraping');
-                const scrapingData = await scrapingResponse.json();
-
-                // Get updated stats
-                const statsResponse = await fetch('/api/admin/dashboard');
-                const stats = await statsResponse.json();
+                const data = await response.json();
 
                 const resultsContainer = document.getElementById('step6-results');
-                resultsContainer.innerHTML = `
-                    <div class="alert alert-success">
-                        <h4>🎉 Installation Complete!</h4>
-                        <p>Your fantasy golf app has been successfully upgraded with professional-grade scraping capabilities!</p>
-                        
-                        <div class="stats-grid" style="margin-top: 1rem;">
-                            <div class="stat-card">
-                                <div class="stat-number">${stats.active_golfers || 0}</div>
-                                <div class="stat-label">Active Golfers</div>
+                
+                if (data.success) {
+                    resultsContainer.innerHTML = `
+                        <div class="alert alert-success">
+                            <h4>🎉 Installation Complete!</h4>
+                            <p>Your fantasy golf app has been successfully upgraded with professional-grade scraping capabilities!</p>
+                            
+                            <div class="stats-grid" style="margin-top: 1rem;">
+                                <div class="stat-card">
+                                    <div class="stat-number">${data.final_stats.total_golfers || 0}</div>
+                                    <div class="stat-label">Active Golfers</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number">${data.final_stats.total_tournaments || 0}</div>
+                                    <div class="stat-label">Tournaments</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number">✅</div>
+                                    <div class="stat-label">System Health</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div class="stat-number">✅</div>
+                                    <div class="stat-label">Scraping Status</div>
+                                </div>
                             </div>
-                            <div class="stat-card">
-                                <div class="stat-number">${stats.total_tournaments || 0}</div>
-                                <div class="stat-label">Tournaments</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number">${healthData.status === 'OK' ? '✅' : '❌'}</div>
-                                <div class="stat-label">System Health</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number">${scrapingData.status === 'healthy' ? '✅' : '❌'}</div>
-                                <div class="stat-label">Scraping Status</div>
-                            </div>
-                        </div>
 
-                        <div style="margin-top: 1rem;">
-                            <button class="btn" onclick="window.open('/', '_blank')">🏌️ View Your App</button>
-                            <button class="btn btn-secondary" onclick="window.open('/admin-dashboard.html', '_blank')">🎛️ Open Admin Dashboard</button>
+                            <div style="margin-top: 1rem;">
+                                <button class="btn" onclick="window.open('/', '_blank')">🏌️ View Your App</button>
+                                <button class="btn btn-secondary" onclick="window.open('/', '_blank')">🎛️ Back to Admin</button>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    resultsContainer.innerHTML = `
+                        <div class="alert alert-warning">
+                            <h4>⚠️ Verification Issues</h4>
+                            <p>Some components may need attention:</p>
+                            <ul>
+                                ${Object.entries(data.verification).map(([key, value]) => 
+                                    `<li>${key}: ${value ? '✅' : '❌'}</li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
                 resultsContainer.classList.remove('hidden');
-
                 completeStep(6);
                 showMessage('🎉 Installation verification complete!', 'success');
                 
             } catch (error) {
                 setStepError(6);
-                showMessage('❌ Verification failed', 'error');
+                showMessage('❌ Verification failed: ' + error.message, 'error');
             } finally {
                 btn.innerHTML = '✅ Verify Installation';
                 btn.disabled = false;
@@ -917,7 +966,10 @@
                 showMessage('🧪 Running test scraping...', 'info');
                 
                 const response = await fetch('/api/admin/trigger-scraping', {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
                 });
 
                 if (response.ok) {
