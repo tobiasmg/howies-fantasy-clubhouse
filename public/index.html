@@ -98,6 +98,11 @@
             color: white;
         }
 
+        .btn-small {
+            padding: 0.25rem 1rem;
+            font-size: 0.9rem;
+        }
+
         .main-content {
             min-height: calc(100vh - 80px);
             padding: 2rem;
@@ -284,6 +289,72 @@
             border-color: #f44336;
         }
 
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #2a5298, #1e3c72);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .leaderboard-table th,
+        .leaderboard-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .leaderboard-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #1e3c72;
+        }
+
+        .leaderboard-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .position {
+            font-weight: bold;
+            color: #2a5298;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            color: #ddd;
+            margin-bottom: 1rem;
+        }
+
         .hidden {
             display: none !important;
         }
@@ -294,6 +365,9 @@
             }
             .tournament-grid {
                 grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -320,7 +394,7 @@
 
     <!-- Main Content -->
     <main class="main-content">
-        <!-- Home View -->
+        <!-- Home/Tournaments View -->
         <div id="homeView" class="view active">
             <div class="card">
                 <div class="card-header">
@@ -330,6 +404,112 @@
                 
                 <div class="tournament-grid" id="tournamentsContainer">
                     <!-- Tournaments loaded by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tournaments View (same as home for now) -->
+        <div id="tournamentsView" class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title">All Tournaments</h1>
+                    <button class="btn btn-small" onclick="loadTournaments()">
+                        <i class="fas fa-refresh"></i> Refresh
+                    </button>
+                </div>
+                
+                <div class="tournament-grid" id="allTournamentsContainer">
+                    <!-- All tournaments loaded by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- My Teams View -->
+        <div id="myTeamsView" class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title">My Teams</h1>
+                    <button class="btn btn-small" onclick="loadMyTeams()">
+                        <i class="fas fa-refresh"></i> Refresh
+                    </button>
+                </div>
+                
+                <div id="myTeamsContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-users"></i>
+                        <h3>No Teams Yet</h3>
+                        <p>Create your first fantasy golf team by selecting a tournament!</p>
+                        <button class="btn" onclick="showView('tournaments')">Browse Tournaments</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leaderboard View -->
+        <div id="leaderboardView" class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title">Leaderboard</h1>
+                    <select id="leaderboardTournament" class="form-control" style="width: auto;" onchange="loadLeaderboard()">
+                        <option value="">Select Tournament</option>
+                    </select>
+                </div>
+                
+                <div id="leaderboardContainer">
+                    <div class="empty-state">
+                        <i class="fas fa-trophy"></i>
+                        <h3>Select a Tournament</h3>
+                        <p>Choose a tournament from the dropdown to view the leaderboard.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin View -->
+        <div id="adminView" class="view">
+            <div class="card">
+                <div class="card-header">
+                    <h1 class="card-title">Admin Dashboard</h1>
+                    <button class="btn btn-small" onclick="loadAdminStats()">
+                        <i class="fas fa-refresh"></i> Refresh
+                    </button>
+                </div>
+                
+                <div class="stats-grid" id="adminStatsContainer">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalUsers">-</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalTournaments">-</div>
+                        <div class="stat-label">Tournaments</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalTeams">-</div>
+                        <div class="stat-label">Teams</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="activeGolfers">-</div>
+                        <div class="stat-label">Active Golfers</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">Admin Actions</h2>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                        <button class="btn" onclick="triggerDatabaseSetup()">
+                            <i class="fas fa-database"></i> Setup Database
+                        </button>
+                        <button class="btn" onclick="triggerScraping()">
+                            <i class="fas fa-download"></i> Update Golfer Data
+                        </button>
+                        <button class="btn btn-secondary" onclick="checkHealth()">
+                            <i class="fas fa-heart"></i> Check System Health
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -357,7 +537,9 @@
                 </form>
                 
                 <div style="margin-top: 1rem; text-align: center;">
-                    <p>Demo Account: demo@howiesclubhouse.com / demo123</p>
+                    <p><strong>Demo Accounts:</strong></p>
+                    <p>Admin: admin@howiesclubhouse.com / admin123!</p>
+                    <p>Demo: demo@howiesclubhouse.com / demo123</p>
                 </div>
             </div>
         </div>
@@ -395,4 +577,3 @@
     <script src="app.js"></script>
 </body>
 </html>
-
