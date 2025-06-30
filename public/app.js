@@ -4,6 +4,7 @@ let tournaments = [];
 let golfers = [];
 let selectedGolfers = [];
 let currentTournament = null;
+let userTeams = new Map(); // Cache user teams by tournament ID
 
 // API base URL
 const API_BASE = window.location.origin + '/api';
@@ -148,6 +149,15 @@ function updateNavigation(isLoggedIn) {
             <span style="margin-right: 1rem;">Welcome, ${currentUser.username}!</span>
             <button class="btn btn-secondary" onclick="logout()">Logout</button>
         `;
+        
+        // Load user teams for proper tournament display
+        loadUserTeamsForTournaments().then(() => {
+            // Refresh tournament displays if they exist
+            if (tournaments.length > 0) {
+                displayTournaments(tournaments, 'tournamentsContainer');
+                displayTournaments(tournaments, 'allTournamentsContainer');
+            }
+        });
     } else {
         navLinks.innerHTML = `
             <li><a onclick="showView('home')">Home</a></li>
@@ -158,6 +168,9 @@ function updateNavigation(isLoggedIn) {
             <button class="btn" onclick="showView('login')">Login</button>
             <button class="btn btn-secondary" onclick="showView('register')">Register</button>
         `;
+        
+        // Clear user teams cache
+        userTeams.clear();
     }
 }
 
@@ -194,6 +207,11 @@ async function loadTournaments(forTournamentsView = false) {
         
         tournaments = data;
         
+        // Load user teams if logged in
+        if (currentUser) {
+            await loadUserTeamsForTournaments();
+        }
+        
         // Display in home view
         displayTournaments(data, 'tournamentsContainer');
         
@@ -208,6 +226,27 @@ async function loadTournaments(forTournamentsView = false) {
     } catch (error) {
         console.error('Error loading tournaments:', error);
         showAlert('Failed to load tournaments', 'error');
+    }
+}
+
+async function loadUserTeamsForTournaments() {
+    if (!currentUser) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/teams/my-teams`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const teams = await response.json();
+        
+        // Cache teams by tournament ID
+        userTeams.clear();
+        teams.forEach(team => {
+            userTeams.set(team.tournament_id, team);
+        });
+        
+    } catch (error) {
+        console.error('Error loading user teams:', error);
     }
 }
 
@@ -243,8 +282,43 @@ function displayTournaments(tournamentList, containerId) {
             statusText = 'Completed';
         }
         
+        // Check if user has a team for this tournament
+        const userTeam = userTeams.get(tournament.id);
+        const hasTeam = !!userTeam;
+        const canEdit = hasTeam && new Date(tournament.start_date) > new Date();
+        
+        let buttonHtml = '';
+        if (currentUser) {
+            if (status === 'completed') {
+                buttonHtml = '<span style="color: #666; font-style: italic;">Tournament Completed</span>';
+            } else if (status === 'active') {
+                if (hasTeam) {
+                    buttonHtml = '<span style="color: #666; font-style: italic;"><i class="fas fa-lock"></i> Team Locked (Tournament Live)</span>';
+                } else {
+                    buttonHtml = '<span style="color: #666; font-style: italic;"><i class="fas fa-lock"></i> Registration Closed</span>';
+                }
+            } else { // upcoming
+                if (hasTeam) {
+                    buttonHtml = `
+                        <div style="margin-bottom: 0.5rem;">
+                            <span style="color: #4CAF50; font-weight: bold;">
+                                <i class="fas fa-check-circle"></i> Team: "${userTeam.team_name}"
+                            </span>
+                        </div>
+                        <button class="btn btn-secondary" onclick="editExistingTeam(${tournament.id})">
+                            <i class="fas fa-edit"></i> Edit Team
+                        </button>
+                    `;
+                } else {
+                    buttonHtml = `<button class="btn" onclick="createTeam(${tournament.id})">
+                        <i class="fas fa-plus"></i> Create Team
+                    </button>`;
+                }
+            }
+        }
+        
         return `
-            <div class="tournament-card ${status === 'active' ? 'active-tournament' : ''}">
+            <div class="tournament-card ${status === 'active' ? 'active-tournament' : ''} ${hasTeam ? 'has-team' : ''}">
                 <div class="tournament-date">
                     ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}
                 </div>
@@ -258,10 +332,11 @@ function displayTournaments(tournamentList, containerId) {
                 </div>
                 <div class="tournament-info">
                     ${tournament.team_count || 0} teams
+                    ${hasTeam ? ' • You have a team' : ''}
                 </div>
-                ${currentUser ? `<button class="btn" onclick="createTeam(${tournament.id})">
-                    Create Team
-                </button>` : ''}
+                <div style="margin-top: 1rem;">
+                    ${buttonHtml}
+                </div>
             </div>
         `;
     }).join('');
@@ -516,6 +591,13 @@ function createTeam(tournamentId) {
         return;
     }
     
+    // Check if user already has a team for this tournament
+    const existingTeam = userTeams.get(tournamentId);
+    if (existingTeam) {
+        showAlert('You already have a team for this tournament. Use "Edit Team" to modify it.', 'error');
+        return;
+    }
+    
     // Find the tournament
     currentTournament = tournaments.find(t => t.id === tournamentId);
     if (!currentTournament) {
@@ -530,7 +612,7 @@ function createTeam(tournamentId) {
         return;
     }
     
-    // Reset team builder state
+    // Reset team builder state for new team
     selectedGolfers = [];
     updateSelectedGolfersDisplay();
     
@@ -543,6 +625,82 @@ function createTeam(tournamentId) {
     // Show team builder and load golfers
     showView('teamBuilder');
     loadGolfers();
+}
+
+async function editExistingTeam(tournamentId) {
+    if (!currentUser) {
+        showView('login');
+        return;
+    }
+    
+    const existingTeam = userTeams.get(tournamentId);
+    if (!existingTeam) {
+        showAlert('No team found for this tournament', 'error');
+        return;
+    }
+    
+    // Use the existing editTeam function
+    await editTeam(existingTeam.id, tournamentId);
+}
+
+async function editTeam(teamId, tournamentId) {
+    if (!currentUser) {
+        showView('login');
+        return;
+    }
+    
+    try {
+        // Load existing team details
+        const teamResponse = await fetch(`${API_BASE}/teams/${teamId}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!teamResponse.ok) {
+            const error = await teamResponse.json();
+            showAlert(error.error || 'Failed to load team details', 'error');
+            return;
+        }
+        
+        const teamData = await teamResponse.json();
+        
+        // Find the tournament
+        currentTournament = tournaments.find(t => t.id === tournamentId);
+        if (!currentTournament) {
+            showAlert('Tournament not found', 'error');
+            return;
+        }
+        
+        // Pre-populate team builder with existing team data
+        const existingGolferIds = [
+            teamData.golfer1_id, teamData.golfer2_id, teamData.golfer3_id,
+            teamData.golfer4_id, teamData.golfer5_id, teamData.golfer6_id
+        ].filter(Boolean);
+        
+        // Load golfers first
+        await loadGolfers();
+        
+        // Set selected golfers
+        selectedGolfers = golfers.filter(g => existingGolferIds.includes(g.id));
+        
+        // Update team builder UI
+        document.getElementById('selectedTournamentName').textContent = currentTournament.name;
+        document.getElementById('selectedTournamentInfo').textContent = 
+            `${currentTournament.course_name || ''} • ${currentTournament.location || ''} • ${new Date(currentTournament.start_date).toLocaleDateString()}`;
+        document.getElementById('teamName').value = teamData.team_name || '';
+        
+        // Update displays
+        updateSelectedGolfersDisplay();
+        displayGolfers(golfers);
+        
+        // Show team builder
+        showView('teamBuilder');
+        
+        showAlert('Team loaded for editing!', 'info');
+        
+    } catch (error) {
+        console.error('Error loading team for editing:', error);
+        showAlert('Failed to load team for editing', 'error');
+    }
 }
 
 async function loadGolfers() {
@@ -651,10 +809,17 @@ function updateSelectedGolfersDisplay() {
     const saveBtn = document.getElementById('saveTeamBtn');
     const teamNameInput = document.getElementById('teamName');
     
+    // Enable save button only when we have 6 golfers AND a team name
     if (count === 6 && teamNameInput?.value.trim()) {
         saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Team';
     } else {
         saveBtn.disabled = true;
+        if (count < 6) {
+            saveBtn.innerHTML = `<i class="fas fa-save"></i> Save Team (${count}/6 golfers selected)`;
+        } else if (!teamNameInput?.value.trim()) {
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Team (Enter team name)';
+        }
     }
     
     const selectedCard = document.getElementById('selectedGolfersCard');
@@ -699,13 +864,20 @@ async function saveTeam() {
     }
     
     if (selectedGolfers.length !== 6) {
-        showAlert('Please select exactly 6 golfers', 'error');
+        showAlert('Please select exactly 6 golfers for your team', 'error');
         return;
     }
     
     const teamName = document.getElementById('teamName').value.trim();
     if (!teamName) {
-        showAlert('Please enter a team name', 'error');
+        showAlert('Please enter a team name before saving', 'error');
+        // Focus on the team name input and highlight it
+        const teamNameInput = document.getElementById('teamName');
+        teamNameInput.focus();
+        teamNameInput.style.borderColor = '#f44336';
+        setTimeout(() => {
+            teamNameInput.style.borderColor = '';
+        }, 3000);
         return;
     }
     
@@ -715,6 +887,11 @@ async function saveTeam() {
     }
     
     try {
+        // Show loading state
+        const saveBtn = document.getElementById('saveTeamBtn');
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
         const golferIds = selectedGolfers.map(g => g.id);
         
         const response = await fetch(`${API_BASE}/teams`, {
@@ -733,16 +910,30 @@ async function saveTeam() {
         const result = await response.json();
         
         if (response.ok) {
-            showAlert('Team saved successfully!', 'success');
+            const action = result.isUpdate ? 'updated' : 'created';
+            showAlert(`Team ${action} successfully!`, 'success');
+            
+            // Update local cache
+            await loadUserTeamsForTournaments();
+            
+            // Refresh tournament displays
+            displayTournaments(tournaments, 'tournamentsContainer');
+            displayTournaments(tournaments, 'allTournamentsContainer');
+            
+            // Go to My Teams
             showView('myTeams');
-            loadMyTeams(); // Refresh teams list
+            loadMyTeams();
         } else {
             showAlert(result.error || 'Failed to save team', 'error');
+            // Reset save button
+            updateSelectedGolfersDisplay();
         }
         
     } catch (error) {
         console.error('Error saving team:', error);
         showAlert('Failed to save team', 'error');
+        // Reset save button
+        updateSelectedGolfersDisplay();
     }
 }
 
