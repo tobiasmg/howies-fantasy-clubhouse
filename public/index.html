@@ -279,12 +279,25 @@
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 1rem;
-            transition: border-color 0.3s ease;
+            transition: all 0.3s ease;
         }
 
         .form-control:focus {
             outline: none;
             border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.2);
+        }
+
+        .form-control.error {
+            border-color: #f44336;
+            box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.2);
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
         }
 
         .alert {
@@ -695,6 +708,16 @@
                     <div id="selectedGolfersList" class="selected-golfers-grid">
                         <!-- Selected golfers will appear here -->
                     </div>
+                    
+                    <!-- Team Actions - Moved here -->
+                    <div style="text-align: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #f0f0f0;">
+                        <button class="btn" id="saveTeamBtn" onclick="saveTeam()" disabled>
+                            <i class="fas fa-save"></i> Save Team
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearTeam()" style="margin-left: 1rem;">
+                            <i class="fas fa-trash"></i> Clear All
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Golfer Search and Filter -->
@@ -718,16 +741,6 @@
                             <p>Loading golfers...</p>
                         </div>
                     </div>
-                </div>
-
-                <!-- Team Actions -->
-                <div style="text-align: center; margin-top: 2rem;">
-                    <button class="btn" id="saveTeamBtn" onclick="saveTeam()" disabled>
-                        <i class="fas fa-save"></i> Save Team
-                    </button>
-                    <button class="btn btn-secondary" onclick="clearTeam()">
-                        <i class="fas fa-trash"></i> Clear All
-                    </button>
                 </div>
             </div>
         </div>
