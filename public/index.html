@@ -362,6 +362,18 @@
             margin-top: 1rem;
         }
 
+        .team-golfers {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .team-golfers .selected-golfers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+
         .golfer-card {
             background: white;
             border: 2px solid #e0e0e0;
@@ -471,6 +483,12 @@
             }
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            .team-golfers .selected-golfers-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .golfers-grid {
+                grid-template-columns: 1fr;
             }
         }
     </style>
