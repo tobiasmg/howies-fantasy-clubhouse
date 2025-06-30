@@ -299,19 +299,54 @@ async function loadMyTeams() {
                 </div>
             `;
         } else {
-            container.innerHTML = teams.map(team => `
-                <div class="card">
-                    <div class="card-header">
-                        <h3>${team.team_name || 'Unnamed Team'}</h3>
-                        <span class="tournament-status status-${team.start_date > new Date() ? 'upcoming' : 'active'}">
-                            ${team.tournament_name}
-                        </span>
+            container.innerHTML = teams.map(team => {
+                const startDate = new Date(team.start_date);
+                const now = new Date();
+                const isUpcoming = startDate > now;
+                const status = isUpcoming ? 'upcoming' : (team.is_active ? 'active' : 'completed');
+                
+                return `
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>${team.team_name || 'Unnamed Team'}</h3>
+                            <div style="display: flex; gap: 1rem; align-items: center;">
+                                <span class="tournament-status status-${status}">
+                                    ${status.charAt(0).toUpperCase() + status.slice(1)}
+                                </span>
+                                ${team.can_edit ? `<button class="btn btn-small" onclick="editTeam(${team.id}, ${team.tournament_id})">
+                                    <i class="fas fa-edit"></i> Edit Team
+                                </button>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 1rem;">
+                            <p><strong>Tournament:</strong> ${team.tournament_name}</p>
+                            <p><strong>Date:</strong> ${startDate.toLocaleDateString()}</p>
+                            <p><strong>Total Score:</strong> ${team.total_score || 0}</p>
+                            <p><strong>Created:</strong> ${new Date(team.created_at).toLocaleDateString()}</p>
+                        </div>
+                        
+                        <div class="team-golfers">
+                            <h4 style="margin-bottom: 1rem; color: #1e3c72;">Your Selected Golfers:</h4>
+                            <div class="selected-golfers-grid">
+                                ${team.golfers.map((golfer, index) => `
+                                    <div class="selected-golfer-card" style="border: 2px solid #e0e0e0;">
+                                        <div class="golfer-name" style="font-size: 0.9rem;">
+                                            <span class="country-flag">${getCountryFlag(golfer.country)}</span>
+                                            ${golfer.name}
+                                        </div>
+                                        <div style="font-size: 0.8rem; color: #666; margin-top: 0.25rem;">
+                                            Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        
+                        ${!team.can_edit ? '<p style="color: #666; font-style: italic; margin-top: 1rem;"><i class="fas fa-lock"></i> Team locked - tournament has started</p>' : ''}
                     </div>
-                    <p>Tournament: ${team.tournament_name}</p>
-                    <p>Date: ${new Date(team.start_date).toLocaleDateString()}</p>
-                    <p>Total Score: ${team.total_score || 0}</p>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
     } catch (error) {
         console.error('Error loading teams:', error);
