@@ -1,6 +1,6 @@
-// scripts/owgrScraper.js - Complete OWGR scraper for 200+ players
+// scripts/owgrScraper.js - OWGR scraper for 200+ players
 const puppeteer = require('puppeteer');
-const pool = require('../config/database');
+const { query } = require('../config/database');
 
 class OWGRScraper {
     constructor() {
@@ -110,7 +110,12 @@ class OWGRScraper {
                     { rank: 12, name: 'Bryson DeChambeau', country: 'USA', avgPoints: 3.99, totalPoints: 179.72, events: 45 },
                     { rank: 13, name: 'Max Homa', country: 'USA', avgPoints: 3.78, totalPoints: 192.91, events: 51 },
                     { rank: 14, name: 'Tony Finau', country: 'USA', avgPoints: 3.67, totalPoints: 146.82, events: 38 },
-                    { rank: 15, name: 'Hideki Matsuyama', country: 'JPN', avgPoints: 3.46, totalPoints: 138.37, events: 40 }
+                    { rank: 15, name: 'Hideki Matsuyama', country: 'JPN', avgPoints: 3.46, totalPoints: 138.37, events: 40 },
+                    { rank: 16, name: 'Jordan Spieth', country: 'USA', avgPoints: 3.36, totalPoints: 154.59, events: 46 },
+                    { rank: 17, name: 'Justin Thomas', country: 'USA', avgPoints: 3.26, totalPoints: 149.82, events: 46 },
+                    { rank: 18, name: 'Matt Fitzpatrick', country: 'ENG', avgPoints: 3.23, totalPoints: 168.08, events: 58 },
+                    { rank: 19, name: 'Jon Rahm', country: 'ESP', avgPoints: 3.20, totalPoints: 143.85, events: 45 },
+                    { rank: 20, name: 'Cameron Smith', country: 'AUS', avgPoints: 3.17, totalPoints: 126.69, events: 27 }
                 ];
                 
                 // Merge scraped data with fallback, prioritizing scraped data
@@ -158,35 +163,32 @@ class OWGRScraper {
     }
 
     async updatePlayerDatabase(players) {
-        const client = await pool.connect();
         try {
-            await client.query('BEGIN');
+            await query('BEGIN');
 
             console.log('Updating player database...');
             
-            // Don't clear existing golfers - just update them
+            // Update existing golfers with OWGR data
             for (const player of players) {
-                await client.query(`
-                    INSERT INTO golfers (name, country, current_ranking, owgr_points, events_played, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, NOW())
+                await query(`
+                    INSERT INTO golfers (name, country, world_ranking, owgr_points, events_played, updated_at, is_active)
+                    VALUES ($1, $2, $3, $4, $5, NOW(), true)
                     ON CONFLICT (name) DO UPDATE SET
                         country = $2,
-                        current_ranking = $3,
+                        world_ranking = $3,
                         owgr_points = $4,
                         events_played = $5,
                         updated_at = NOW()
                 `, [player.name, player.country, player.rank, player.avgPoints, player.events]);
             }
 
-            await client.query('COMMIT');
+            await query('COMMIT');
             console.log(`Successfully updated ${players.length} players in database`);
 
         } catch (error) {
-            await client.query('ROLLBACK');
+            await query('ROLLBACK');
             console.error('Error updating player database:', error);
             throw error;
-        } finally {
-            client.release();
         }
     }
 
@@ -199,14 +201,13 @@ class OWGRScraper {
                 await this.updatePlayerDatabase(players);
                 
                 // Log the update
-                const client = await pool.connect();
                 try {
-                    await client.query(`
+                    await query(`
                         INSERT INTO scraping_logs (type, status, message, players_updated)
                         VALUES ('weekly_players', 'success', $1, $2)
                     `, [`Updated ${players.length} players from OWGR`, players.length]);
-                } finally {
-                    client.release();
+                } catch (logError) {
+                    console.log('Could not log to scraping_logs (table may not exist yet)');
                 }
                 
                 console.log('Weekly player update completed successfully');
@@ -217,28 +218,17 @@ class OWGRScraper {
         } catch (error) {
             console.error('Weekly player update failed:', error);
             
-            // Log the error
-            const client = await pool.connect();
+            // Try to log the error
             try {
-                await client.query(`
+                await query(`
                     INSERT INTO scraping_logs (type, status, message, error_details)
                     VALUES ('weekly_players', 'error', $1, $2)
                 `, ['Weekly player update failed', error.message]);
-            } finally {
-                client.release();
+            } catch (logError) {
+                console.log('Could not log error to scraping_logs');
             }
         } finally {
             await this.cleanup();
-        }
-    }
-
-    async runDailyScoreUpdate() {
-        try {
-            console.log('Daily score update - placeholder for live scoring');
-            // This is a placeholder for future live scoring implementation
-            
-        } catch (error) {
-            console.error('Daily score update failed:', error);
         }
     }
 
@@ -251,9 +241,8 @@ class OWGRScraper {
     }
 
     async getScrapingHealth() {
-        const client = await pool.connect();
         try {
-            const result = await client.query(`
+            const result = await query(`
                 SELECT 
                     type,
                     status,
@@ -266,15 +255,20 @@ class OWGRScraper {
                 LIMIT 10
             `);
             
-            const playerCount = await client.query('SELECT COUNT(*) as count FROM golfers');
+            const playerCount = await query('SELECT COUNT(*) as count FROM golfers');
             
             return {
                 recentLogs: result.rows,
                 totalPlayers: parseInt(playerCount.rows[0].count),
                 lastUpdate: result.rows[0]?.created_at || null
             };
-        } finally {
-            client.release();
+        } catch (error) {
+            return {
+                recentLogs: [],
+                totalPlayers: 0,
+                lastUpdate: null,
+                error: error.message
+            };
         }
     }
 }
@@ -293,9 +287,6 @@ if (require.main === module) {
         case 'players':
             scraper.runWeeklyPlayerUpdate();
             break;
-        case 'scores':
-            scraper.runDailyScoreUpdate();
-            break;
         case 'health':
             scraper.getScrapingHealth().then(health => {
                 console.log('Scraping Health Status:');
@@ -310,7 +301,6 @@ if (require.main === module) {
         default:
             console.log('Usage:');
             console.log('  node scripts/owgrScraper.js players  - Update full player database');
-            console.log('  node scripts/owgrScraper.js scores   - Update tournament scores');
             console.log('  node scripts/owgrScraper.js health   - Check scraping status');
     }
 }
