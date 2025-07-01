@@ -111,6 +111,18 @@
             background: linear-gradient(135deg, #ff9800, #f57c00);
         }
 
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+            border: none;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #d32f2f, #b71c1c);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
@@ -615,24 +627,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-            .tournament-grid {
-                grid-template-columns: 1fr;
-            }
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .team-golfers .selected-golfers-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            .golfers-grid {
-                grid-template-columns: 1fr;
-            }
-
-            /* Enhanced Admin Dashboard Styles */
+        /* Enhanced Admin Dashboard Styles */
         .admin-action-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -775,47 +770,44 @@
             font-size: 0.8rem;
         }
 
-        .btn-danger {
-            background: linear-gradient(135deg, #f44336, #d32f2f);
-            color: white;
-            border: none;
-        }
-
-        .btn-danger:hover {
-            background: linear-gradient(135deg, #d32f2f, #b71c1c);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
-        }
-
-        /* Responsive improvements for admin dashboard */
         @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            .tournament-grid {
+                grid-template-columns: 1fr;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .team-golfers .selected-golfers-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .golfers-grid {
+                grid-template-columns: 1fr;
+            }
             .admin-action-grid {
                 grid-template-columns: 1fr;
             }
-            
             .tournament-management-item {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 1rem;
             }
-            
             .tournament-actions {
                 width: 100%;
                 justify-content: flex-end;
             }
-            
             .team-user-header {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.5rem;
             }
-            
             .user-team-item {
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.5rem;
             }
-            
             .user-team-item > div:last-child {
                 width: 100%;
                 justify-content: flex-end;
@@ -1076,76 +1068,6 @@
             </div>
         </div>
 
-                <!-- Professional Golfer Management -->
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">🏌️ Professional Golfer Database</h2>
-                    </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <div class="alert alert-info">
-                            <strong>Professional Features Available:</strong><br>
-                            Load 250+ real professional golfers including Tiger Woods, Rory McIlroy, Scottie Scheffler, and the complete PGA Tour roster with real earnings, world rankings, and career statistics.
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                        <button class="btn btn-success" onclick="loadCompleteDatabase()">
-                            <i class="fas fa-download"></i> Load 250+ Professional Golfers
-                        </button>
-                        <button class="btn btn-secondary" onclick="checkGolferCount()">
-                            <i class="fas fa-count"></i> Check Current Count
-                        </button>
-                        <button class="btn btn-warning" onclick="createTestTournament()">
-                            <i class="fas fa-plus"></i> Create Test Tournament
-                        </button>
-                    </div>
-
-                    <div id="golferStatsDisplay" style="display: none;">
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-number" id="professionalGolfers">-</div>
-                                <div class="stat-label">Professional Golfers</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="legendaryGolfers">-</div>
-                                <div class="stat-label">Hall of Fame Players</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="activeStars">-</div>
-                                <div class="stat-label">Current Stars</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="countriesRepresented">-</div>
-                                <div class="stat-label">Countries</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">🔧 System Management</h2>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                        <button class="btn" onclick="triggerDatabaseSetup()">
-                            <i class="fas fa-database"></i> Setup Database
-                        </button>
-                        <button class="btn" onclick="triggerScraping()">
-                            <i class="fas fa-download"></i> Update Golfer Data
-                        </button>
-                        <button class="btn btn-secondary" onclick="checkHealth()">
-                            <i class="fas fa-heart"></i> Check System Health
-                        </button>
-                        <a href="/upgrade.html" target="_blank" class="btn btn-warning">
-                            <i class="fas fa-rocket"></i> System Upgrade
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Team Builder View -->
         <div id="teamBuilderView" class="view">
             <div class="card">
@@ -1171,7 +1093,7 @@
                     
                     <div class="form-group">
                         <label for="teamName">Team Name</label>
-                        <input type="text" id="teamName" class="form-control" placeholder="Enter your team name" required>
+                        <input type="text" id="teamName" class="form-control" placeholder="Enter your team name" required oninput="updateSelectedGolfersDisplay()">
                     </div>
                 </div>
 
