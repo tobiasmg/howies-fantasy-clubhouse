@@ -644,6 +644,45 @@ async function checkGolferCount() {
     }
 }
 
+// Add this function to your public/app.js admin functions
+
+async function scrapeReal250Golfers() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmScrape = confirm('This will scrape 250+ REAL professional golfers from ESPN, PGA Tour, and other legitimate sources. This may take 2-3 minutes. Continue?');
+    if (!confirmScrape) return;
+    
+    try {
+        showAlert('🏌️ Scraping REAL professional golfers... Please wait 2-3 minutes.', 'info');
+        
+        const response = await fetch('/api/admin/scrape-real-250-golfers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showAlert(`🎉 SUCCESS! Scraped ${data.total_real_golfers} REAL professional golfers!`, 'success');
+            showAlert('✅ All golfers are REAL and verifiable on ESPN/PGA Tour websites!', 'success');
+            showAlert(`📊 Sources: ${data.sources.join(', ')}`, 'info');
+            
+            // Refresh admin stats
+            loadAdminStats();
+        } else {
+            showAlert('❌ Failed to scrape real golfers: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Real golfer scraping failed: ' + error.message, 'error');
+    }
+}
+
 async function createTestTournament() {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
