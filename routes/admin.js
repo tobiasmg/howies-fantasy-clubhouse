@@ -1233,6 +1233,9 @@ router.delete('/teams/:id', async (req, res) => {
 // Add to routes/admin.js - Replace existing PUT /teams/:id route
 
 // Enhanced team update route with golfer management
+// Replace the existing PUT /teams/:id route in routes/admin.js (around line 900-1000)
+// Look for: router.put('/teams/:id', async (req, res) => {
+
 router.put('/teams/:id', async (req, res) => {
     try {
         const teamId = req.params.id;
@@ -1258,8 +1261,17 @@ router.put('/teams/:id', async (req, res) => {
         const startDate = new Date(team.start_date);
         const now = new Date();
         
-        // Check if tournament has started (admins can edit active tournaments)
-        const canEditGolfers = startDate > now || req.user.isAdmin;
+        // ADMIN OVERRIDE: Admins can edit golfers anytime
+        const isAdmin = req.user.isAdmin;
+        const canEditGolfers = isAdmin || startDate > now;
+        
+        console.log('🔧 Team update permissions:', {
+            teamId: teamId,
+            isAdmin: isAdmin,
+            canEditGolfers: canEditGolfers,
+            hasGolferIds: !!golfer_ids,
+            golferCount: golfer_ids ? golfer_ids.length : 'none'
+        });
         
         if (golfer_ids && golfer_ids.length > 0) {
             if (!canEditGolfers) {
@@ -1268,19 +1280,33 @@ router.put('/teams/:id', async (req, res) => {
                 });
             }
             
-            if (golfer_ids.length !== 6) {
+            // For non-admins, enforce 6 golfers. For admins, allow any number (for emergency situations)
+            if (!isAdmin && golfer_ids.length !== 6) {
                 return res.status(400).json({ error: 'Must select exactly 6 golfers' });
             }
             
-            // Validate all golfer IDs exist
-            const golferCheck = await query(`
-                SELECT COUNT(*) as count 
-                FROM golfers 
-                WHERE id = ANY($1) AND is_active = true
-            `, [golfer_ids]);
+            // For admins, warn about incomplete teams but allow it
+            if (isAdmin && golfer_ids.length !== 6) {
+                console.log(`⚠️ Admin ${req.user.email} saving incomplete team: ${golfer_ids.length}/6 golfers`);
+            }
             
-            if (parseInt(golferCheck.rows[0].count) !== 6) {
-                return res.status(400).json({ error: 'One or more golfers not found or inactive' });
+            // Validate all golfer IDs exist
+            if (golfer_ids.length > 0) {
+                const golferCheck = await query(`
+                    SELECT COUNT(*) as count 
+                    FROM golfers 
+                    WHERE id = ANY($1) AND is_active = true
+                `, [golfer_ids]);
+                
+                if (parseInt(golferCheck.rows[0].count) !== golfer_ids.length) {
+                    return res.status(400).json({ error: 'One or more golfers not found or inactive' });
+                }
+            }
+            
+            // Pad golfer_ids to 6 elements with nulls for database
+            const paddedGolferIds = [...golfer_ids];
+            while (paddedGolferIds.length < 6) {
+                paddedGolferIds.push(null);
             }
             
             // Update team with new golfers
@@ -1297,14 +1323,15 @@ router.put('/teams/:id', async (req, res) => {
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = $8
                 RETURNING *
-            `, [team_name.trim(), ...golfer_ids, teamId]);
+            `, [team_name.trim(), ...paddedGolferIds, teamId]);
             
-            console.log(`✏️ Team ${teamId} updated (including golfers) by admin ${req.user.email}`);
+            console.log(`✏️ Team ${teamId} updated (including golfers) by ${isAdmin ? 'admin' : 'user'} ${req.user.email}`);
             
             res.json({ 
-                message: 'Team and golfers updated successfully',
+                message: `Team and golfers updated successfully${isAdmin && golfer_ids.length !== 6 ? ' (incomplete team)' : ''}`,
                 team: result.rows[0],
-                golfersUpdated: true
+                golfersUpdated: true,
+                isIncomplete: golfer_ids.length !== 6
             });
             
         } else {
@@ -1316,7 +1343,7 @@ router.put('/teams/:id', async (req, res) => {
                 RETURNING *
             `, [team_name.trim(), teamId]);
             
-            console.log(`✏️ Team ${teamId} name updated by admin ${req.user.email}`);
+            console.log(`✏️ Team ${teamId} name updated by ${isAdmin ? 'admin' : 'user'} ${req.user.email}`);
             
             res.json({ 
                 message: 'Team name updated successfully',
