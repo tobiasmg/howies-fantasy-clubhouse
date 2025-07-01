@@ -37,4 +37,36 @@ router.get('/:id', async (req, res) => {
     }
 });
 
+// Get tournament leaderboard - NEW ENDPOINT
+router.get('/:id/leaderboard', async (req, res) => {
+    try {
+        const tournamentId = req.params.id;
+        
+        const leaderboard = await query(`
+            SELECT 
+                t.id as team_id,
+                t.team_name,
+                t.total_score,
+                u.username,
+                u.email,
+                t.created_at,
+                (CASE WHEN t.golfer1_id IS NOT NULL THEN 1 ELSE 0 END +
+                 CASE WHEN t.golfer2_id IS NOT NULL THEN 1 ELSE 0 END +
+                 CASE WHEN t.golfer3_id IS NOT NULL THEN 1 ELSE 0 END +
+                 CASE WHEN t.golfer4_id IS NOT NULL THEN 1 ELSE 0 END +
+                 CASE WHEN t.golfer5_id IS NOT NULL THEN 1 ELSE 0 END +
+                 CASE WHEN t.golfer6_id IS NOT NULL THEN 1 ELSE 0 END) as golfer_count
+            FROM teams t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.tournament_id = $1
+            ORDER BY t.total_score ASC, t.created_at ASC
+        `, [tournamentId]);
+        
+        res.json(leaderboard.rows);
+    } catch (error) {
+        console.error('Error loading tournament leaderboard:', error);
+        res.status(500).json({ error: 'Failed to load tournament leaderboard' });
+    }
+});
+
 module.exports = router;
