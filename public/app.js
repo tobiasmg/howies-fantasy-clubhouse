@@ -1315,6 +1315,34 @@ function showTeamEditModal(teamDetails) {
         overflow-y: auto;
     `;
     
+    // Determine tournament status for display
+    const startDate = new Date(teamDetails.start_date);
+    const endDate = new Date(teamDetails.end_date);
+    const now = new Date();
+    
+    let tournamentStatus = '';
+    let statusColor = '';
+    
+    if (now < startDate) {
+        tournamentStatus = 'Upcoming';
+        statusColor = '#1976d2';
+    } else if (now >= startDate && now <= endDate) {
+        tournamentStatus = 'Live/Active';
+        statusColor = '#388e3c';
+    } else {
+        tournamentStatus = 'Completed';
+        statusColor = '#757575';
+    }
+    
+    // Admin status for golfer editing
+    const adminCanEdit = currentUser && currentUser.isAdmin;
+    const golferEditStatus = adminCanEdit ? 
+        '<span style="color: #4CAF50; font-weight: bold;"><i class="fas fa-crown"></i> Admin: Can edit golfers anytime</span>' :
+        (teamDetails.can_edit_golfers ? 
+            '<span style="color: #4CAF50;">Can edit golfers</span>' : 
+            '<span style="color: #f44336;">Golfers locked (tournament started)</span>'
+        );
+    
     modalContent.innerHTML = `
         <div class="team-edit-modal">
             <h3>Edit Team: ${teamDetails.team_name || 'Unnamed Team'}</h3>
@@ -1323,13 +1351,9 @@ function showTeamEditModal(teamDetails) {
                 <h4><i class="fas fa-info-circle"></i> Team Information</h4>
                 <p><strong>User:</strong> ${teamDetails.username} (${teamDetails.email})</p>
                 <p><strong>Tournament:</strong> ${teamDetails.tournament_name}</p>
-                <p><strong>Start Date:</strong> ${new Date(teamDetails.start_date).toLocaleDateString()}</p>
-                <p><strong>Status:</strong> 
-                    ${teamDetails.can_edit_golfers ? 
-                        '<span style="color: #4CAF50;">Can edit golfers</span>' : 
-                        '<span style="color: #f44336;">Golfers locked (tournament started)</span>'
-                    }
-                </p>
+                <p><strong>Start Date:</strong> ${startDate.toLocaleDateString()}</p>
+                <p><strong>Tournament Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${tournamentStatus}</span></p>
+                <p><strong>Golfer Edit Status:</strong> ${golferEditStatus}</p>
             </div>
             
             <div class="team-edit-section">
@@ -1338,7 +1362,7 @@ function showTeamEditModal(teamDetails) {
             </div>
             
             <div class="team-edit-section">
-                <h4><i class="fas fa-golf-ball"></i> Current Golfers</h4>
+                <h4><i class="fas fa-golf-ball"></i> Current Golfers (${teamDetails.golfers.length}/6)</h4>
                 <div id="currentGolfers" class="selected-golfers-container has-golfers">
                     ${teamDetails.golfers.map(golfer => `
                         <div class="selected-golfer-item">
@@ -1348,21 +1372,32 @@ function showTeamEditModal(teamDetails) {
                                 <br>
                                 <small>Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}</small>
                             </div>
-                            ${teamDetails.can_edit_golfers ? `
-                                <button type="button" class="remove-golfer-btn" onclick="removeGolferFromEdit(${golfer.id})">×</button>
+                            ${adminCanEdit ? `
+                                <button type="button" class="remove-golfer-btn" onclick="removeGolferFromEdit(${golfer.id})" title="Remove golfer">×</button>
                             ` : ''}
                         </div>
                     `).join('')}
                 </div>
+                ${teamDetails.golfers.length < 6 ? `
+                    <div style="color: #ff9800; font-weight: bold; margin-top: 0.5rem;">
+                        ⚠️ Team incomplete: ${6 - teamDetails.golfers.length} more golfer(s) needed
+                    </div>
+                ` : ''}
             </div>
             
-            ${teamDetails.can_edit_golfers ? `
+            ${adminCanEdit ? `
                 <div class="team-edit-section">
                     <h4><i class="fas fa-search"></i> Search & Add Golfers</h4>
                     <input type="text" id="golferSearchInput" class="golfer-search-input" placeholder="Search for golfers to add..." oninput="searchGolfersForEdit(this.value)">
                     <div id="golferSearchResults" class="golfer-search-results" style="display: none;"></div>
                 </div>
-            ` : ''}
+            ` : `
+                <div class="team-edit-section">
+                    <p style="color: #666; font-style: italic;">
+                        <i class="fas fa-info-circle"></i> Only team name can be edited for non-admin users when tournament has started.
+                    </p>
+                </div>
+            `}
             
             <div style="margin-top: 2rem; text-align: center; display: flex; gap: 1rem; justify-content: center;">
                 <button class="btn btn-success" onclick="saveTeamChanges(${teamDetails.id})">
@@ -1378,8 +1413,11 @@ function showTeamEditModal(teamDetails) {
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
     
-    // Store team details globally for editing
-    window.editingTeamDetails = teamDetails;
+    // Store team details globally for editing - WITH ADMIN OVERRIDE
+    window.editingTeamDetails = {
+        ...teamDetails,
+        can_edit_golfers: adminCanEdit // Force true for admins
+    };
     window.editingTeamModal = modal;
 }
 
@@ -1524,18 +1562,27 @@ async function saveTeamChanges(teamId) {
     }
     
     const golferIds = window.editingTeamDetails.golfers.map(g => g.id);
+    const isAdmin = currentUser && currentUser.isAdmin;
     
-    // Validate golfer count if editing golfers is allowed
-    if (window.editingTeamDetails.can_edit_golfers && golferIds.length !== 6) {
+    // Validate golfer count - admins can save incomplete teams for emergency situations
+    if (golferIds.length !== 6 && !isAdmin) {
         showAlert('Please select exactly 6 golfers', 'error');
         return;
+    }
+    
+    if (golferIds.length !== 6 && isAdmin) {
+        const confirmSave = confirm(`Warning: This team has ${golferIds.length}/6 golfers. As an admin, you can save incomplete teams, but this may cause issues. Continue?`);
+        if (!confirmSave) return;
     }
     
     try {
         const updateData = { team_name: teamName };
         
-        // Only include golfer IDs if we're allowed to edit them
-        if (window.editingTeamDetails.can_edit_golfers) {
+        // ADMIN OVERRIDE: Always include golfer IDs for admins
+        if (isAdmin) {
+            updateData.golfer_ids = golferIds;
+            console.log('🔧 Admin saving team with golfers:', golferIds);
+        } else if (window.editingTeamDetails.can_edit_golfers) {
             updateData.golfer_ids = golferIds;
         }
         
