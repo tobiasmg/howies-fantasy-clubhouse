@@ -729,8 +729,6 @@ router.get('/scraping/health', async (req, res) => {
     }
 });
 
-// Add this route to your routes/admin.js file (after the existing routes)
-
 // Create test tournament for checking golfer upgrades
 router.post('/test-tournament', async (req, res) => {
     try {
@@ -777,8 +775,6 @@ router.post('/test-tournament', async (req, res) => {
         });
     }
 });
-
-// Add this route to your routes/admin.js file for loading complete professional database
 
 // Load complete professional golfer database (250+ golfers)
 router.post('/load-complete-database', async (req, res) => {
@@ -850,116 +846,18 @@ router.post('/load-complete-database', async (req, res) => {
             { name: 'Alex Noren', country: 'SWE', ranking: 58, wins: 2, majors: 0, earnings: 18765432, fedexPoints: 185 },
             { name: 'Kurt Kitayama', country: 'USA', ranking: 59, wins: 0, majors: 0, earnings: 5432109, fedexPoints: 176 },
             { name: 'Mackenzie Hughes', country: 'CAN', ranking: 60, wins: 1, majors: 0, earnings: 13210987, fedexPoints: 167 },
-            { name: 'J.T. Poston', country: 'USA', ranking: 61, wins: 2, majors: 0, earnings: 16789012, fedexPoints: 159 },
-            { name: 'Mito Pereira', country: 'CHI', ranking: 62, wins: 0, majors: 0, earnings: 8901234, fedexPoints: 151 },
-            { name: 'Sepp Straka', country: 'AUT', ranking: 63, wins: 1, majors: 0, earnings: 10234567, fedexPoints: 143 },
-            { name: 'Denny McCarthy', country: 'USA', ranking: 64, wins: 0, majors: 0, earnings: 12567890, fedexPoints: 136 },
-            { name: 'Andrew Putnam', country: 'USA', ranking: 65, wins: 1, majors: 0, earnings: 9876543, fedexPoints: 129 },
-            { name: 'Nick Taylor', country: 'CAN', ranking: 66, wins: 3, majors: 0, earnings: 17654321, fedexPoints: 122 },
-            { name: 'Stephan Jaeger', country: 'GER', ranking: 67, wins: 1, majors: 0, earnings: 8432109, fedexPoints: 116 },
-            { name: 'Min Woo Lee', country: 'AUS', ranking: 68, wins: 1, majors: 0, earnings: 11098765, fedexPoints: 110 },
-            { name: 'Taylor Moore', country: 'USA', ranking: 69, wins: 1, majors: 0, earnings: 7765432, fedexPoints: 104 },
-            { name: 'Keith Mitchell', country: 'USA', ranking: 70, wins: 1, majors: 0, earnings: 15432198, fedexPoints: 98 },
-            { name: 'Beau Hossler', country: 'USA', ranking: 71, wins: 0, majors: 0, earnings: 9210987, fedexPoints: 93 },
-            { name: 'Davis Thompson', country: 'USA', ranking: 72, wins: 1, majors: 0, earnings: 6789012, fedexPoints: 88 },
-            { name: 'Victor Perez', country: 'FRA', ranking: 73, wins: 1, majors: 0, earnings: 12345987, fedexPoints: 83 },
-            { name: 'Adam Hadwin', country: 'CAN', ranking: 74, wins: 1, majors: 0, earnings: 18234567, fedexPoints: 78 },
-            { name: 'Taylor Pendrith', country: 'CAN', ranking: 75, wins: 0, majors: 0, earnings: 5678901, fedexPoints: 74 },
-            { name: 'Christiaan Bezuidenhout', country: 'RSA', ranking: 76, wins: 2, majors: 0, earnings: 14567234, fedexPoints: 70 },
-            { name: 'Matt Wallace', country: 'ENG', ranking: 77, wins: 4, majors: 0, earnings: 16890123, fedexPoints: 66 },
-            { name: 'Erik van Rooyen', country: 'RSA', ranking: 78, wins: 0, majors: 0, earnings: 8123456, fedexPoints: 62 },
-            { name: 'Brendon Todd', country: 'USA', ranking: 79, wins: 4, majors: 0, earnings: 19876234, fedexPoints: 59 },
-            { name: 'Nico Echavarria', country: 'COL', ranking: 80, wins: 1, majors: 0, earnings: 7456789, fedexPoints: 56 },
-            { name: 'Ben Griffin', country: 'USA', ranking: 81, wins: 0, majors: 0, earnings: 4321098, fedexPoints: 53 },
-            { name: 'Doug Ghim', country: 'USA', ranking: 82, wins: 0, majors: 0, earnings: 6789432, fedexPoints: 50 },
-            { name: 'Troy Merritt', country: 'USA', ranking: 83, wins: 2, majors: 0, earnings: 23456123, fedexPoints: 47 },
-            { name: 'Michael Thompson', country: 'USA', ranking: 84, wins: 2, majors: 0, earnings: 21087654, fedexPoints: 45 },
-            { name: 'Adam Svensson', country: 'CAN', ranking: 85, wins: 1, majors: 0, earnings: 9432167, fedexPoints: 42 },
-            { name: 'Lanto Griffin', country: 'USA', ranking: 86, wins: 1, majors: 0, earnings: 13567890, fedexPoints: 40 },
-            { name: 'Kevin Yu', country: 'TPE', ranking: 87, wins: 1, majors: 0, earnings: 8901567, fedexPoints: 38 },
-            { name: 'Peter Malnati', country: 'USA', ranking: 88, wins: 2, majors: 0, earnings: 16234789, fedexPoints: 36 },
-            { name: 'Ryan Fox', country: 'NZL', ranking: 89, wins: 2, majors: 0, earnings: 11567234, fedexPoints: 34 },
-            { name: 'Robert MacIntyre', country: 'SCO', ranking: 90, wins: 1, majors: 0, earnings: 7890123, fedexPoints: 32 },
-            { name: 'Adrian Meronk', country: 'POL', ranking: 91, wins: 1, majors: 0, earnings: 9123456, fedexPoints: 30 },
-            { name: 'Thriston Lawrence', country: 'RSA', ranking: 92, wins: 1, majors: 0, earnings: 6456789, fedexPoints: 29 },
-            { name: 'Antoine Rozner', country: 'FRA', ranking: 93, wins: 1, majors: 0, earnings: 5789012, fedexPoints: 27 },
-            { name: 'Rasmus Hojgaard', country: 'DEN', ranking: 94, wins: 2, majors: 0, earnings: 8012345, fedexPoints: 26 },
-            { name: 'Nicolai Hojgaard', country: 'DEN', ranking: 95, wins: 1, majors: 0, earnings: 7345678, fedexPoints: 25 },
-            { name: 'Jordan L. Smith', country: 'ENG', ranking: 96, wins: 1, majors: 0, earnings: 6678901, fedexPoints: 24 },
-            { name: 'Matt Jordan', country: 'ENG', ranking: 97, wins: 0, majors: 0, earnings: 4901234, fedexPoints: 23 },
-            { name: 'Yannik Paul', country: 'GER', ranking: 98, wins: 1, majors: 0, earnings: 5234567, fedexPoints: 22 },
-            { name: 'Pablo Larrazabal', country: 'ESP', ranking: 99, wins: 6, majors: 0, earnings: 18567890, fedexPoints: 21 },
-            { name: 'Dean Burmester', country: 'RSA', ranking: 100, wins: 2, majors: 0, earnings: 9890123, fedexPoints: 20 },
 
-            // Additional Professional Golfers (101-250) 
-            { name: 'Luke List', country: 'USA', ranking: 101, wins: 1, majors: 0, earnings: 13456789, fedexPoints: 19 },
-            { name: 'Joel Dahmen', country: 'USA', ranking: 102, wins: 0, majors: 0, earnings: 8567123, fedexPoints: 18 },
-            { name: 'Ryan Palmer', country: 'USA', ranking: 103, wins: 4, majors: 0, earnings: 26789456, fedexPoints: 17 },
-            { name: 'Brandt Snedeker', country: 'USA', ranking: 104, wins: 9, majors: 0, earnings: 41234890, fedexPoints: 16 },
-            { name: 'Charles Howell III', country: 'USA', ranking: 105, wins: 3, majors: 0, earnings: 35678123, fedexPoints: 15 },
-            { name: 'Kevin Streelman', country: 'USA', ranking: 106, wins: 2, majors: 0, earnings: 22345789, fedexPoints: 14 },
-            { name: 'Scott Stallings', country: 'USA', ranking: 107, wins: 3, majors: 0, earnings: 18901456, fedexPoints: 13 },
-            { name: 'Jimmy Walker', country: 'USA', ranking: 108, wins: 6, majors: 1, earnings: 33567812, fedexPoints: 12 },
-            { name: 'Cameron Champ', country: 'USA', ranking: 109, wins: 3, majors: 0, earnings: 12890345, fedexPoints: 11 },
-            { name: 'Nate Lashley', country: 'USA', ranking: 110, wins: 1, majors: 0, earnings: 9123678, fedexPoints: 10 },
-            { name: 'Stewart Cink', country: 'USA', ranking: 111, wins: 8, majors: 1, earnings: 42567123, fedexPoints: 9 },
-            { name: 'Jim Herman', country: 'USA', ranking: 112, wins: 3, majors: 0, earnings: 16234567, fedexPoints: 8 },
-            { name: 'Patton Kizzire', country: 'USA', ranking: 113, wins: 2, majors: 0, earnings: 14567234, fedexPoints: 7 },
-            { name: 'Ryan Brehm', country: 'USA', ranking: 114, wins: 1, majors: 0, earnings: 8901567, fedexPoints: 6 },
-            { name: 'Mark Hubbard', country: 'USA', ranking: 115, wins: 0, majors: 0, earnings: 7234890, fedexPoints: 5 },
-            { name: 'Kevin Tway', country: 'USA', ranking: 116, wins: 1, majors: 0, earnings: 11567890, fedexPoints: 4 },
-            { name: 'Chesson Hadley', country: 'USA', ranking: 117, wins: 1, majors: 0, earnings: 13890123, fedexPoints: 3 },
-            { name: 'Wes Roach', country: 'USA', ranking: 118, wins: 0, majors: 0, earnings: 5123456, fedexPoints: 2 },
-            { name: 'MJ Daffue', country: 'RSA', ranking: 119, wins: 0, majors: 0, earnings: 4567890, fedexPoints: 1 },
-            { name: 'Henrik Norlander', country: 'SWE', ranking: 120, wins: 0, majors: 0, earnings: 6890123, fedexPoints: 0 },
-
-            // More established professionals
+            // Legendary and Hall of Fame golfers
             { name: 'Tiger Woods', country: 'USA', ranking: 121, wins: 82, majors: 15, earnings: 120445230, fedexPoints: 0 },
             { name: 'Phil Mickelson', country: 'USA', ranking: 122, wins: 45, majors: 6, earnings: 94955060, fedexPoints: 0 },
             { name: 'Ernie Els', country: 'RSA', ranking: 123, wins: 19, majors: 4, earnings: 49285240, fedexPoints: 0 },
             { name: 'Vijay Singh', country: 'FIJ', ranking: 124, wins: 34, majors: 3, earnings: 71238230, fedexPoints: 0 },
-            { name: 'Retief Goosen', country: 'RSA', ranking: 125, wins: 7, majors: 2, earnings: 28742140, fedexPoints: 0 },
-            { name: 'Angel Cabrera', country: 'ARG', ranking: 126, wins: 5, majors: 2, earnings: 12456230, fedexPoints: 0 },
-            { name: 'Charl Schwartzel', country: 'RSA', ranking: 127, wins: 11, majors: 1, earnings: 18967340, fedexPoints: 0 },
-            { name: 'Y.E. Yang', country: 'KOR', ranking: 128, wins: 5, majors: 1, earnings: 14356780, fedexPoints: 0 },
-            { name: 'Graeme McDowell', country: 'NIR', ranking: 129, wins: 11, majors: 1, earnings: 23467890, fedexPoints: 0 },
-            { name: 'Martin Kaymer', country: 'GER', ranking: 130, wins: 8, majors: 2, earnings: 19876540, fedexPoints: 0 },
-
-            // Rising stars and regulars (131-200)
-            { name: 'Akshay Bhatia', country: 'USA', ranking: 131, wins: 1, majors: 0, earnings: 3456789, fedexPoints: 0 },
-            { name: 'Nick Dunlap', country: 'USA', ranking: 132, wins: 1, majors: 0, earnings: 2345678, fedexPoints: 0 },
-            { name: 'Ludvig Aberg', country: 'SWE', ranking: 133, wins: 0, majors: 0, earnings: 4567890, fedexPoints: 0 },
-            { name: 'Grayson Murray', country: 'USA', ranking: 134, wins: 1, majors: 0, earnings: 8901234, fedexPoints: 0 },
-            { name: 'Matt McCarty', country: 'USA', ranking: 135, wins: 0, majors: 0, earnings: 1234567, fedexPoints: 0 },
-            { name: 'Ben Kohles', country: 'USA', ranking: 136, wins: 0, majors: 0, earnings: 3678901, fedexPoints: 0 },
-            { name: 'Bronson Burgoon', country: 'USA', ranking: 137, wins: 0, majors: 0, earnings: 5012345, fedexPoints: 0 },
-            { name: 'Martin Trainer', country: 'USA', ranking: 138, wins: 0, majors: 0, earnings: 7345678, fedexPoints: 0 },
-            { name: 'David Lipsky', country: 'USA', ranking: 139, wins: 0, majors: 0, earnings: 2567890, fedexPoints: 0 },
-            { name: 'Jake Knapp', country: 'USA', ranking: 140, wins: 1, majors: 0, earnings: 4890123, fedexPoints: 0 },
-
-            // Additional international players (141-200)
-            { name: 'Guido Migliozzi', country: 'ITA', ranking: 141, wins: 2, majors: 0, earnings: 6123456, fedexPoints: 0 },
-            { name: 'Jorge Campillo', country: 'ESP', ranking: 142, wins: 2, majors: 0, earnings: 8456789, fedexPoints: 0 },
-            { name: 'Eddie Pepperell', country: 'ENG', ranking: 143, wins: 2, majors: 0, earnings: 7789012, fedexPoints: 0 },
-            { name: 'Marcus Armitage', country: 'ENG', ranking: 144, wins: 1, majors: 0, earnings: 5012345, fedexPoints: 0 },
-            { name: 'Ryo Ishikawa', country: 'JPN', ranking: 145, wins: 17, majors: 0, earnings: 12345678, fedexPoints: 0 },
-            { name: 'Satoshi Kodaira', country: 'JPN', ranking: 146, wins: 1, majors: 0, earnings: 8678901, fedexPoints: 0 },
-            { name: 'Jazz Janewattananond', country: 'THA', ranking: 147, wins: 3, majors: 0, earnings: 4567123, fedexPoints: 0 },
-            { name: 'C.T. Pan', country: 'TPE', ranking: 148, wins: 1, majors: 0, earnings: 11234567, fedexPoints: 0 },
-            { name: 'Byeong Hun An', country: 'KOR', ranking: 149, wins: 1, majors: 0, earnings: 9890345, fedexPoints: 0 },
-            { name: 'K.H. Lee', country: 'KOR', ranking: 150, wins: 2, majors: 0, earnings: 13567234, fedexPoints: 0 },
-
-            // Complete the database to 250+ golfers
-            { name: 'Brendan Steele', country: 'USA', ranking: 151, wins: 2, majors: 0, earnings: 16789012, fedexPoints: 0 },
-            { name: 'Harold Varner III', country: 'USA', ranking: 152, wins: 1, majors: 0, earnings: 12012345, fedexPoints: 0 },
-            { name: 'Rory Sabbatini', country: 'SVK', ranking: 153, wins: 6, majors: 0, earnings: 24567890, fedexPoints: 0 },
-            { name: 'Danny Willett', country: 'ENG', ranking: 154, wins: 8, majors: 1, earnings: 18890123, fedexPoints: 0 },
-            { name: 'Ian Poulter', country: 'ENG', ranking: 155, wins: 3, majors: 0, earnings: 22345678, fedexPoints: 0 }
+            { name: 'Retief Goosen', country: 'RSA', ranking: 125, wins: 7, majors: 2, earnings: 28742140, fedexPoints: 0 }
         ];
 
-        // Add even more golfers to reach 250+
+        // Add more golfers to reach 250+
         const additionalGolfers = [];
-        for (let i = 156; i <= 250; i++) {
+        for (let i = 126; i <= 250; i++) {
             additionalGolfers.push({
                 name: `Professional Golfer ${i}`,
                 country: ['USA', 'ENG', 'AUS', 'CAN', 'RSA', 'ESP', 'GER', 'FRA'][Math.floor(Math.random() * 8)],
@@ -1049,8 +947,7 @@ router.post('/load-complete-database', async (req, res) => {
     }
 });
 
-// ===== ENHANCED ADMIN ROUTES =====
-// Add these routes at the end of your routes/admin.js file (before module.exports = router;)
+// ===== ENHANCED ADMIN ROUTES FOR TOURNAMENT AND TEAM MANAGEMENT =====
 
 // Tournament Management Routes
 router.get('/tournaments/manage', async (req, res) => {
@@ -1316,6 +1213,38 @@ router.put('/teams/:id', async (req, res) => {
     } catch (error) {
         console.error('Error updating team:', error);
         res.status(500).json({ error: 'Failed to update team' });
+    }
+});
+
+// Enhanced leaderboard route for tournament management
+router.get('/tournaments/:id/leaderboard', async (req, res) => {
+    try {
+        const tournamentId = req.params.id;
+        
+        const leaderboard = await query(`
+            SELECT 
+                t.id as team_id,
+                t.team_name,
+                t.total_score,
+                u.username,
+                u.email,
+                t.created_at,
+                COUNT(CASE WHEN t.golfer1_id IS NOT NULL THEN 1 END +
+                      CASE WHEN t.golfer2_id IS NOT NULL THEN 1 END +
+                      CASE WHEN t.golfer3_id IS NOT NULL THEN 1 END +
+                      CASE WHEN t.golfer4_id IS NOT NULL THEN 1 END +
+                      CASE WHEN t.golfer5_id IS NOT NULL THEN 1 END +
+                      CASE WHEN t.golfer6_id IS NOT NULL THEN 1 END) as golfer_count
+            FROM teams t
+            JOIN users u ON t.user_id = u.id
+            WHERE t.tournament_id = $1
+            ORDER BY t.total_score ASC, t.created_at ASC
+        `, [tournamentId]);
+        
+        res.json(leaderboard.rows);
+    } catch (error) {
+        console.error('Error loading tournament leaderboard:', error);
+        res.status(500).json({ error: 'Failed to load tournament leaderboard' });
     }
 });
 
