@@ -812,6 +812,237 @@
                 width: 100%;
                 justify-content: flex-end;
             }
+
+            /* Add to the <style> section in public/index.html */
+
+/* Enhanced team editing modal styles */
+.team-edit-modal {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.team-edit-section {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.team-edit-section h4 {
+    margin: 0 0 1rem 0;
+    color: #1e3c72;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.selected-golfers-container {
+    min-height: 100px;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+.selected-golfers-container.has-golfers {
+    border-color: #4CAF50;
+    border-style: solid;
+}
+
+.selected-golfer-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    margin: 0.5rem 0;
+    border-radius: 8px;
+    border: 2px solid #4CAF50;
+    transition: all 0.3s ease;
+}
+
+.selected-golfer-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.remove-golfer-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.remove-golfer-btn:hover {
+    background: #d32f2f;
+    transform: scale(1.1);
+}
+
+.golfer-search-section {
+    margin: 1.5rem 0;
+}
+
+.golfer-search-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.golfer-search-input:focus {
+    outline: none;
+    border-color: #2a5298;
+    box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.2);
+}
+
+.golfer-search-results {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    margin-top: 0.5rem;
+}
+
+.golfer-result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+.golfer-result-item:hover {
+    background: #f8f9fa;
+}
+
+.golfer-result-item:last-child {
+    border-bottom: none;
+}
+
+.golfer-result-item.selected {
+    background: #e8f5e9;
+    border-left: 4px solid #4CAF50;
+}
+
+.golfer-result-item.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.add-golfer-btn {
+    background: #2a5298;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.add-golfer-btn:hover {
+    background: #1e3c72;
+    transform: translateY(-1px);
+}
+
+.add-golfer-btn:disabled {
+    background: #4CAF50;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.team-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-upcoming {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.status-active {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.status-completed {
+    background: #fafafa;
+    color: #757575;
+}
+
+/* Incomplete team warning */
+.incomplete-team-badge {
+    background: #ff9800;
+    color: white;
+    padding: 0.2rem 0.4rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+/* Loading animation for save button */
+.saving-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .team-edit-modal {
+        padding: 1rem;
+        width: 98%;
+        margin: 1rem;
+    }
+    
+    .selected-golfer-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .remove-golfer-btn {
+        align-self: flex-end;
+    }
+    
+    .golfer-result-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .add-golfer-btn {
+        align-self: stretch;
+        text-align: center;
+    }
+}
         }
     </style>
 </head>
