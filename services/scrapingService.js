@@ -9,26 +9,25 @@ class ScrapingService {
         this.setupCronJobs();
     }
 
-  setupCronJobs() {
-    // Update golfer rankings daily at 6 AM
-    cron.schedule('0 6 * * *', () => {
-        console.log('🕒 Daily golfer rankings update...');
-        this.updateGolferRankings();
-    });
+    setupCronJobs() {
+        // Update golfer rankings daily at 6 AM
+        cron.schedule('0 6 * * *', () => {
+            console.log('🕒 Daily golfer rankings update...');
+            this.updateGolferRankings();
+        });
 
-    // Auto-manage tournaments every hour
-    cron.schedule('0 * * * *', () => {
-        console.log('🏆 Hourly tournament management...');
-        this.autoManageTournaments();
-    });
+        // Auto-manage tournaments every hour
+        cron.schedule('0 * * * *', () => {
+            console.log('🏆 Hourly tournament management...');
+            this.autoManageTournaments();
+        });
 
-    // Update live scores every 15 minutes during active tournaments
-    cron.schedule('*/15 * * * *', () => {
-        this.updateLiveScores();
-    });
+        // Update live scores every 15 minutes during active tournaments
+        cron.schedule('*/15 * * * *', () => {
+            this.updateLiveScores();
+        });
 
-    console.log('📅 Enhanced scraping cron jobs scheduled');
-}
+        console.log('📅 Enhanced scraping cron jobs scheduled');
     }
 
     async getBrowser() {
@@ -130,6 +129,9 @@ class ScrapingService {
     }
 
     async updateLiveScores() {
+        // First, run auto tournament management
+        await this.autoManageTournaments();
+
         const activeTournaments = await query(`
             SELECT id, name, start_date, end_date FROM tournaments 
             WHERE is_active = true 
@@ -138,13 +140,14 @@ class ScrapingService {
         `);
 
         if (activeTournaments.rows.length === 0) {
+            console.log('📝 No active tournaments found for score updates');
             return;
         }
 
+        console.log(`🏆 Updating scores for ${activeTournaments.rows.length} active tournaments`);
+
         let browser;
         try {
-            console.log('🏆 Updating live tournament scores...');
-            
             browser = await this.getBrowser();
             
             for (const tournament of activeTournaments.rows) {
@@ -321,22 +324,6 @@ class ScrapingService {
         }
     }
 
-    async cleanup() {
-        if (this.browser) {
-            await this.browser.close();
-            this.browser = null;
-        }
-    }
-
-async cleanup() {
-        if (this.browser) {
-            await this.browser.close();
-            this.browser = null;
-        }
-    }
-
-    // 👇 ADD ALL THE NEW METHODS HERE, BEFORE THE CLOSING BRACE
-
     async autoManageTournaments() {
         console.log('🔄 Running automatic tournament management...');
         
@@ -357,8 +344,6 @@ async cleanup() {
 
     async autoActivateTournaments() {
         try {
-            const { query } = require('../config/database');
-            
             // Activate tournaments that should be active but aren't
             const result = await query(`
                 UPDATE tournaments 
@@ -382,8 +367,6 @@ async cleanup() {
 
     async autoDeactivateTournaments() {
         try {
-            const { query } = require('../config/database');
-            
             // Deactivate and mark as completed tournaments that are finished
             const result = await query(`
                 UPDATE tournaments 
@@ -459,8 +442,6 @@ async cleanup() {
 
     async createTournamentIfMissing(tournamentData) {
         try {
-            const { query } = require('../config/database');
-            
             // Check if tournament already exists
             const existing = await query(`
                 SELECT id FROM tournaments 
@@ -502,7 +483,12 @@ async cleanup() {
         }
     }
 
-} 
+    async cleanup() {
+        if (this.browser) {
+            await this.browser.close();
+            this.browser = null;
+        }
+    }
+}
 
 module.exports = new ScrapingService();
-
