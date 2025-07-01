@@ -194,6 +194,12 @@ function showView(viewName) {
             loadTournamentOptions();
         } else if (viewName === 'admin') {
             loadAdminStats();
+            // Auto-load tournament management
+            if (currentUser && currentUser.isAdmin) {
+                setTimeout(() => {
+                    loadTournamentManagement();
+                }, 500);
+            }
         } else if (viewName === 'teamBuilder') {
             // Team builder data loaded by createTeam function
         }
@@ -702,6 +708,400 @@ async function checkHealth() {
     }
 }
 
+// Tournament Management Functions
+async function loadTournamentManagement() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const container = document.getElementById('tournamentManagementContainer');
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading tournaments...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/tournaments/manage`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const tournaments = await response.json();
+        
+        if (tournaments.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-golf-ball"></i>
+                    <h3>No Tournaments</h3>
+                    <p>No tournaments have been created yet.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = tournaments.map(tournament => {
+            const startDate = new Date(tournament.start_date);
+            const endDate = new Date(tournament.end_date);
+            const now = new Date();
+            
+            let status = 'upcoming';
+            let statusText = 'Upcoming';
+            
+            if (now >= startDate && now <= endDate) {
+                status = 'active';
+                statusText = 'Live';
+            } else if (now > endDate) {
+                status = 'completed';
+                statusText = 'Completed';
+            }
+            
+            return `
+                <div class="tournament-management-item">
+                    <div class="tournament-info">
+                        <h4>${tournament.name}</h4>
+                        <p><strong>Course:</strong> ${tournament.course_name || 'N/A'}</p>
+                        <p><strong>Location:</strong> ${tournament.location || 'N/A'}</p>
+                        <p><strong>Dates:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
+                        <p><strong>Teams:</strong> ${tournament.team_count || 0} teams registered</p>
+                    </div>
+                    <div class="tournament-actions">
+                        <span class="status-${status}">${statusText}</span>
+                        <button class="btn btn-small btn-danger" onclick="deleteTournament(${tournament.id}, '${tournament.name.replace(/'/g, "\\'")}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error loading tournament management:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error Loading Tournaments</h3>
+                <p>Error: ${error.message}</p>
+                <button class="btn" onclick="loadTournamentManagement()">Try Again</button>
+            </div>
+        `;
+        showAlert('Failed to load tournaments: ' + error.message, 'error');
+    }
+}
+
+async function deleteTournament(tournamentId, tournamentName) {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmDelete = confirm(`Are you sure you want to delete "${tournamentName}"?\n\nThis will also delete all associated teams and cannot be undone.`);
+    if (!confirmDelete) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/tournaments/${tournamentId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert(`Tournament "${tournamentName}" deleted successfully!`, 'success');
+            loadTournamentManagement(); // Refresh the list
+            loadAdminStats(); // Refresh stats
+        } else {
+            showAlert(result.error || 'Failed to delete tournament', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting tournament:', error);
+        showAlert('Failed to delete tournament', 'error');
+    }
+}
+
+// Team Management Functions
+async function searchUsers() {
+    const searchTerm = document.getElementById('userSearchInput').value.trim();
+    
+    if (!searchTerm) {
+        showAlert('Please enter a search term', 'error');
+        return;
+    }
+    
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/search?q=${encodeURIComponent(searchTerm)}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const users = await response.json();
+        displayUserTeams(users);
+        
+    } catch (error) {
+        console.error('Error searching users:', error);
+        showAlert('Failed to search users', 'error');
+    }
+}
+
+async function loadTeamManagement() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const container = document.getElementById('teamManagementContainer');
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading users with teams...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/users/with-teams`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const users = await response.json();
+        displayUserTeams(users);
+        
+    } catch (error) {
+        console.error('Error loading team management:', error);
+        const container = document.getElementById('teamManagementContainer');
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error Loading Teams</h3>
+                <p>Error: ${error.message}</p>
+                <button class="btn" onclick="loadTeamManagement()">Try Again</button>
+            </div>
+        `;
+        showAlert('Failed to load user teams: ' + error.message, 'error');
+    }
+}
+
+function displayUserTeams(users) {
+    const container = document.getElementById('teamManagementContainer');
+    
+    if (users.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-users"></i>
+                <h3>No Users Found</h3>
+                <p>No users found matching your search criteria.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = users.map(user => `
+        <div class="team-management-item">
+            <div class="team-user-header">
+                <div>
+                    <h4>${user.username} (${user.email})</h4>
+                    <p>${user.first_name || ''} ${user.last_name || ''}</p>
+                </div>
+                <div>
+                    <span style="color: #666;">${user.teams?.length || 0} teams</span>
+                </div>
+            </div>
+            
+            <div class="user-teams-list">
+                ${user.teams && user.teams.length > 0 ? user.teams.map(team => {
+                    const startDate = new Date(team.start_date);
+                    const now = new Date();
+                    const status = startDate > now ? 'upcoming' : (team.is_active ? 'active' : 'completed');
+                    
+                    return `
+                        <div class="user-team-item">
+                            <div>
+                                <strong>${team.team_name || 'Unnamed Team'}</strong>
+                                <br>
+                                <small>${team.tournament_name} • ${startDate.toLocaleDateString()}</small>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <span class="status-${status}">${status}</span>
+                                <button class="btn btn-small" onclick="editUserTeam(${team.id}, '${user.username}', '${team.tournament_name.replace(/'/g, "\\'")}')">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-small btn-danger" onclick="deleteUserTeam(${team.id}, '${user.username}', '${team.team_name?.replace(/'/g, "\\'") || 'Unnamed Team'}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('') : '<p style="color: #666; font-style: italic;">No teams created yet</p>'}
+            </div>
+        </div>
+    `).join('');
+}
+
+async function deleteUserTeam(teamId, username, teamName) {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmDelete = confirm(`Delete team "${teamName}" for user ${username}?\n\nThis cannot be undone.`);
+    if (!confirmDelete) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/teams/${teamId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert(`Team "${teamName}" deleted successfully!`, 'success');
+            searchUsers(); // Refresh the current search
+            loadAdminStats(); // Refresh stats
+        } else {
+            showAlert(result.error || 'Failed to delete team', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting team:', error);
+        showAlert('Failed to delete team', 'error');
+    }
+}
+
+async function editUserTeam(teamId, username, tournamentName) {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/teams/${teamId}/details`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const teamDetails = await response.json();
+        
+        if (response.ok) {
+            openTeamEditModal(teamDetails, username, tournamentName);
+        } else {
+            showAlert(teamDetails.error || 'Failed to load team details', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading team details:', error);
+        showAlert('Failed to load team details', 'error');
+    }
+}
+
+function openTeamEditModal(teamDetails, username, tournamentName) {
+    // Create a modal for editing teams
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 15px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h3>Edit Team: ${teamDetails.team_name}</h3>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+            </div>
+            
+            <p><strong>User:</strong> ${username}</p>
+            <p><strong>Tournament:</strong> ${tournamentName}</p>
+            
+            <div style="margin: 1rem 0;">
+                <label>Team Name:</label>
+                <input type="text" id="editTeamName" value="${teamDetails.team_name || ''}" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
+            </div>
+            
+            <div style="margin: 1rem 0;">
+                <h4>Current Golfers:</h4>
+                <div id="currentGolfers">
+                    ${teamDetails.golfers.map((golfer, index) => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #f8f9fa; margin: 0.25rem 0; border-radius: 5px;">
+                            <span>${golfer.name} (${golfer.country}) - Rank #${golfer.world_ranking}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <button onclick="saveTeamChanges(${teamDetails.id})" style="background: #4CAF50; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer; margin-right: 0.5rem;">
+                    Save Changes
+                </button>
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: #666; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer;">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+async function saveTeamChanges(teamId) {
+    const teamName = document.getElementById('editTeamName').value.trim();
+    
+    if (!teamName) {
+        showAlert('Team name is required', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/admin/teams/${teamId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify({
+                team_name: teamName
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            showAlert('Team updated successfully!', 'success');
+            document.querySelector('div[style*="position: fixed"]').remove(); // Close modal
+            searchUsers(); // Refresh the display
+        } else {
+            showAlert(result.error || 'Failed to update team', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating team:', error);
+        showAlert('Failed to update team', 'error');
+    }
+}
+
 function loadTournamentOptions() {
     updateTournamentOptions(tournaments);
 }
@@ -1193,366 +1593,4 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
-
-// ===== ENHANCED ADMIN FUNCTIONS =====
-// Add these functions at the end of your public/app.js file
-
-// Tournament Management Functions
-async function loadTournamentManagement() {
-    if (!currentUser || !currentUser.isAdmin) {
-        showAlert('Admin access required', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/tournaments/manage`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        const tournaments = await response.json();
-        const container = document.getElementById('tournamentManagementContainer');
-        
-        if (tournaments.length === 0) {
-            container.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-golf-ball"></i>
-                    <h3>No Tournaments</h3>
-                    <p>No tournaments have been created yet.</p>
-                </div>
-            `;
-            return;
-        }
-        
-        container.innerHTML = tournaments.map(tournament => {
-            const startDate = new Date(tournament.start_date);
-            const endDate = new Date(tournament.end_date);
-            const now = new Date();
-            
-            let status = 'upcoming';
-            let statusText = 'Upcoming';
-            
-            if (now >= startDate && now <= endDate) {
-                status = 'active';
-                statusText = 'Live';
-            } else if (now > endDate) {
-                status = 'completed';
-                statusText = 'Completed';
-            }
-            
-            return `
-                <div class="tournament-management-item">
-                    <div class="tournament-info">
-                        <h4>${tournament.name}</h4>
-                        <p><strong>Course:</strong> ${tournament.course_name || 'N/A'}</p>
-                        <p><strong>Location:</strong> ${tournament.location || 'N/A'}</p>
-                        <p><strong>Dates:</strong> ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}</p>
-                        <p><strong>Teams:</strong> ${tournament.team_count || 0} teams registered</p>
-                    </div>
-                    <div class="tournament-actions">
-                        <span class="status-${status}">${statusText}</span>
-                        <button class="btn btn-small btn-danger" onclick="deleteTournament(${tournament.id}, '${tournament.name.replace(/'/g, "\\'")}')">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-        
-    } catch (error) {
-        console.error('Error loading tournament management:', error);
-        showAlert('Failed to load tournaments', 'error');
-    }
-}
-
-async function deleteTournament(tournamentId, tournamentName) {
-    if (!currentUser || !currentUser.isAdmin) {
-        showAlert('Admin access required', 'error');
-        return;
-    }
-    
-    const confirmDelete = confirm(`Are you sure you want to delete "${tournamentName}"?\n\nThis will also delete all associated teams and cannot be undone.`);
-    if (!confirmDelete) return;
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/tournaments/${tournamentId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            showAlert(`Tournament "${tournamentName}" deleted successfully!`, 'success');
-            loadTournamentManagement(); // Refresh the list
-            loadAdminStats(); // Refresh stats
-        } else {
-            showAlert(result.error || 'Failed to delete tournament', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting tournament:', error);
-        showAlert('Failed to delete tournament', 'error');
-    }
-}
-
-// Team Management Functions
-async function searchUsers() {
-    const searchTerm = document.getElementById('userSearchInput').value.trim();
-    
-    if (!searchTerm) {
-        showAlert('Please enter a search term', 'error');
-        return;
-    }
-    
-    if (!currentUser || !currentUser.isAdmin) {
-        showAlert('Admin access required', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/users/search?q=${encodeURIComponent(searchTerm)}`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        const users = await response.json();
-        displayUserTeams(users);
-        
-    } catch (error) {
-        console.error('Error searching users:', error);
-        showAlert('Failed to search users', 'error');
-    }
-}
-
-async function loadTeamManagement() {
-    if (!currentUser || !currentUser.isAdmin) {
-        showAlert('Admin access required', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/users/with-teams`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        const users = await response.json();
-        displayUserTeams(users);
-        
-    } catch (error) {
-        console.error('Error loading team management:', error);
-        showAlert('Failed to load user teams', 'error');
-    }
-}
-
-function displayUserTeams(users) {
-    const container = document.getElementById('teamManagementContainer');
-    
-    if (users.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <i class="fas fa-users"></i>
-                <h3>No Users Found</h3>
-                <p>No users found matching your search criteria.</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = users.map(user => `
-        <div class="team-management-item">
-            <div class="team-user-header">
-                <div>
-                    <h4>${user.username} (${user.email})</h4>
-                    <p>${user.first_name || ''} ${user.last_name || ''}</p>
-                </div>
-                <div>
-                    <span style="color: #666;">${user.teams?.length || 0} teams</span>
-                </div>
-            </div>
-            
-            <div class="user-teams-list">
-                ${user.teams && user.teams.length > 0 ? user.teams.map(team => {
-                    const startDate = new Date(team.start_date);
-                    const now = new Date();
-                    const status = startDate > now ? 'upcoming' : (team.is_active ? 'active' : 'completed');
-                    
-                    return `
-                        <div class="user-team-item">
-                            <div>
-                                <strong>${team.team_name || 'Unnamed Team'}</strong>
-                                <br>
-                                <small>${team.tournament_name} • ${startDate.toLocaleDateString()}</small>
-                            </div>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <span class="status-${status}">${status}</span>
-                                <button class="btn btn-small" onclick="editUserTeam(${team.id}, '${user.username}', '${team.tournament_name.replace(/'/g, "\\'")}')">
-                                    <i class="fas fa-edit"></i> Edit
-                                </button>
-                                <button class="btn btn-small btn-danger" onclick="deleteUserTeam(${team.id}, '${user.username}', '${team.team_name?.replace(/'/g, "\\'") || 'Unnamed Team'}')">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('') : '<p style="color: #666; font-style: italic;">No teams created yet</p>'}
-            </div>
-        </div>
-    `).join('');
-}
-
-async function deleteUserTeam(teamId, username, teamName) {
-    if (!currentUser || !currentUser.isAdmin) {
-        showAlert('Admin access required', 'error');
-        return;
-    }
-    
-    const confirmDelete = confirm(`Delete team "${teamName}" for user ${username}?\n\nThis cannot be undone.`);
-    if (!confirmDelete) return;
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/teams/${teamId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            showAlert(`Team "${teamName}" deleted successfully!`, 'success');
-            searchUsers(); // Refresh the current search
-            loadAdminStats(); // Refresh stats
-        } else {
-            showAlert(result.error || 'Failed to delete team', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting team:', error);
-        showAlert('Failed to delete team', 'error');
-    }
-}
-
-async function editUserTeam(teamId, username, tournamentName) {
-    if (!currentUser || !currentUser.isAdmin) {
-        showAlert('Admin access required', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/teams/${teamId}/details`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        
-        const teamDetails = await response.json();
-        
-        if (response.ok) {
-            openTeamEditModal(teamDetails, username, tournamentName);
-        } else {
-            showAlert(teamDetails.error || 'Failed to load team details', 'error');
-        }
-    } catch (error) {
-        console.error('Error loading team details:', error);
-        showAlert('Failed to load team details', 'error');
-    }
-}
-
-function openTeamEditModal(teamDetails, username, tournamentName) {
-    // Create a modal for editing teams
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-    `;
-    
-    modal.innerHTML = `
-        <div style="background: white; border-radius: 15px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <h3>Edit Team: ${teamDetails.team_name}</h3>
-                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
-            </div>
-            
-            <p><strong>User:</strong> ${username}</p>
-            <p><strong>Tournament:</strong> ${tournamentName}</p>
-            
-            <div style="margin: 1rem 0;">
-                <label>Team Name:</label>
-                <input type="text" id="editTeamName" value="${teamDetails.team_name || ''}" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
-            </div>
-            
-            <div style="margin: 1rem 0;">
-                <h4>Current Golfers:</h4>
-                <div id="currentGolfers">
-                    ${teamDetails.golfers.map((golfer, index) => `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #f8f9fa; margin: 0.25rem 0; border-radius: 5px;">
-                            <span>${golfer.name} (${golfer.country}) - Rank #${golfer.world_ranking}</span>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-            
-            <div style="text-align: center; margin-top: 1.5rem;">
-                <button onclick="saveTeamChanges(${teamDetails.id})" style="background: #4CAF50; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer; margin-right: 0.5rem;">
-                    Save Changes
-                </button>
-                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: #666; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer;">
-                    Cancel
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-}
-
-async function saveTeamChanges(teamId) {
-    const teamName = document.getElementById('editTeamName').value.trim();
-    
-    if (!teamName) {
-        showAlert('Team name is required', 'error');
-        return;
-    }
-    
-    try {
-        const response = await fetch(`${API_BASE}/admin/teams/${teamId}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify({
-                team_name: teamName
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            showAlert('Team updated successfully!', 'success');
-            document.querySelector('div[style*="position: fixed"]').remove(); // Close modal
-            searchUsers(); // Refresh the display
-        } else {
-            showAlert(result.error || 'Failed to update team', 'error');
-        }
-    } catch (error) {
-        console.error('Error updating team:', error);
-        showAlert('Failed to update team', 'error');
-    }
-}
-
-// Auto-load tournament management when admin view is shown
-const originalShowView = window.showView;
-window.showView = function(viewName) {
-    originalShowView(viewName);
-    
-    if (viewName === 'admin' && currentUser && currentUser.isAdmin) {
-        setTimeout(() => {
-            loadTournamentManagement();
-        }, 100);
-    }
-};
-    
 }
