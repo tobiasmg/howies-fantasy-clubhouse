@@ -487,6 +487,7 @@ async function loadLeaderboard() {
     }
 }
 
+// Enhanced admin functions with professional features
 async function loadAdminStats() {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
@@ -500,14 +501,144 @@ async function loadAdminStats() {
         
         const stats = await response.json();
         
+        // Update existing stats
         document.getElementById('totalUsers').textContent = stats.total_users || 0;
         document.getElementById('totalTournaments').textContent = stats.total_tournaments || 0;
         document.getElementById('totalTeams').textContent = stats.total_teams || 0;
         document.getElementById('activeGolfers').textContent = stats.active_golfers || 0;
         
+        // Show upgrade success message if we have professional data
+        if (stats.active_golfers > 20) {
+            showAlert(`🎉 Professional upgrade active: ${stats.active_golfers} golfers loaded!`, 'success');
+        }
+        
     } catch (error) {
         console.error('Error loading admin stats:', error);
         showAlert('Failed to load admin statistics', 'error');
+    }
+}
+
+// New professional golfer management functions
+async function loadCompleteDatabase() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmLoad = confirm('This will load 250+ professional golfers including Tiger Woods, Rory McIlroy, Scottie Scheffler, and the complete PGA Tour roster with real earnings and world rankings. This may take 30-60 seconds. Continue?');
+    if (!confirmLoad) return;
+    
+    try {
+        // Show loading message
+        showAlert('🏌️ Loading complete professional database... Please wait 30-60 seconds.', 'info');
+        
+        const response = await fetch('/api/admin/load-complete-database', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showAlert(`🎉 SUCCESS! Loaded ${data.stats.total_golfers} professional golfers!`, 'success');
+            showAlert(`🏆 Featured players now available: ${data.featured_golfers.join(', ')}`, 'info');
+            
+            // Show detailed stats
+            document.getElementById('golferStatsDisplay').style.display = 'block';
+            document.getElementById('professionalGolfers').textContent = data.stats.total_golfers;
+            document.getElementById('legendaryGolfers').textContent = data.featured_golfers.length;
+            document.getElementById('activeStars').textContent = '50+';
+            document.getElementById('countriesRepresented').textContent = '20+';
+            
+            // Refresh admin stats
+            loadAdminStats();
+            
+            showAlert('✅ You can now search for Tiger Woods, Phil Mickelson, and 248+ more pros when creating teams!', 'success');
+        } else {
+            showAlert('❌ Failed to load complete database: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Database loading failed: ' + error.message, 'error');
+    }
+}
+
+async function checkGolferCount() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/golfers?limit=300', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const golfers = await response.json();
+        const professionalGolfers = golfers.filter(g => g.data_source === 'complete_professional_load' || g.data_source === 'professional_load');
+        const legendaryGolfers = golfers.filter(g => ['Tiger Woods', 'Phil Mickelson', 'Rory McIlroy', 'Jordan Spieth'].includes(g.name));
+        
+        showAlert(`📊 Current golfer count: ${golfers.length} total, ${professionalGolfers.length} professional`, 'info');
+        
+        if (legendaryGolfers.length > 0) {
+            showAlert(`🏆 Legendary players found: ${legendaryGolfers.map(g => g.name).join(', ')}`, 'success');
+        }
+        
+        // Update display
+        document.getElementById('golferStatsDisplay').style.display = 'block';
+        document.getElementById('professionalGolfers').textContent = professionalGolfers.length;
+        document.getElementById('legendaryGolfers').textContent = legendaryGolfers.length;
+        document.getElementById('activeStars').textContent = golfers.filter(g => g.world_ranking <= 50).length;
+        
+        const countries = [...new Set(golfers.map(g => g.country).filter(Boolean))];
+        document.getElementById('countriesRepresented').textContent = countries.length;
+        
+    } catch (error) {
+        showAlert('❌ Failed to check golfer count: ' + error.message, 'error');
+    }
+}
+
+async function createTestTournament() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmCreate = confirm('Create a test tournament so you can see the professional golfers in action?');
+    if (!confirmCreate) return;
+    
+    try {
+        // Create test tournament
+        const testTournament = {
+            name: '🧪 Test Tournament - Pro Golfers',
+            course_name: 'Professional Test Course',
+            location: 'Fantasy Land, USA',
+            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
+            end_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+            is_active: false,
+            prize_fund: 10000000,
+            course_par: 72
+        };
+        
+        const response = await fetch('/api/admin/tournaments', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(testTournament)
+        });
+        
+        if (response.ok) {
+            showAlert('✅ Test tournament created! Check the tournaments page to create a team.', 'success');
+            loadTournaments();
+        } else {
+            showAlert('⚠️ Could not create test tournament automatically. You can manually update an existing tournament dates to make it upcoming.', 'warning');
+        }
+    } catch (error) {
+        showAlert('ℹ️ Test tournament creation not available. Try making an existing tournament upcoming by editing its dates.', 'info');
     }
 }
 
@@ -703,19 +834,30 @@ async function editTeam(teamId, tournamentId) {
     }
 }
 
+// Enhanced golfer loading and display with professional data
 async function loadGolfers() {
     try {
         const search = document.getElementById('golferSearch')?.value || '';
         const country = document.getElementById('countryFilter')?.value || '';
         
-        let url = `${API_BASE}/golfers?limit=100`;
+        // Load more golfers to show the professional database
+        let url = `${API_BASE}/golfers?limit=300`;
         if (search) url += `&search=${encodeURIComponent(search)}`;
         
         const response = await fetch(url);
         golfers = await response.json();
         
+        // Sort by world ranking for better display
+        golfers.sort((a, b) => (a.world_ranking || 999) - (b.world_ranking || 999));
+        
         displayGolfers(golfers);
         updateCountryFilter(golfers);
+        
+        // Show professional data stats
+        const proGolfers = golfers.filter(g => g.data_source === 'complete_professional_load' || g.data_source === 'professional_load');
+        if (proGolfers.length > 20) {
+            showAlert(`🎉 ${proGolfers.length} professional golfers loaded! Search for Tiger Woods, Rory McIlroy, or any PGA Tour player.`, 'success');
+        }
         
     } catch (error) {
         console.error('Error loading golfers:', error);
@@ -748,13 +890,22 @@ function displayGolfers(golferList) {
         const isSelected = selectedGolfers.some(s => s.id === golfer.id);
         const isDisabled = selectedGolfers.length >= 6 && !isSelected;
         
+        // Enhanced golfer display with professional data
+        const earnings = golfer.career_earnings ? formatCurrency(golfer.career_earnings) : 'N/A';
+        const seasonEarnings = golfer.season_earnings ? formatCurrency(golfer.season_earnings) : 'N/A';
+        const cutsData = golfer.total_events ? `${golfer.cuts_made || 0}/${golfer.total_events || 0}` : 'N/A';
+        const ranking = golfer.world_ranking || 999;
+        const rankingDisplay = ranking <= 100 ? `#${ranking}` : `#${ranking}`;
+        const rankingClass = ranking <= 10 ? 'top-10' : ranking <= 50 ? 'top-50' : '';
+        
         return `
             <div class="golfer-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}" 
                  onclick="toggleGolferSelection(${golfer.id})">
-                <div class="golfer-ranking">#${golfer.world_ranking || '999'}</div>
+                <div class="golfer-ranking ${rankingClass}">${rankingDisplay}</div>
                 <div class="golfer-name">
                     <span class="country-flag">${getCountryFlag(golfer.country)}</span>
                     ${golfer.name}
+                    ${golfer.wins_this_season > 0 ? '<span class="wins-badge">🏆</span>' : ''}
                 </div>
                 <div class="golfer-stats">
                     <div class="golfer-stat">
@@ -770,11 +921,28 @@ function displayGolfers(golferList) {
                         <span>${golfer.major_wins || 0}</span>
                     </div>
                     <div class="golfer-stat">
-                        <span>Ranking:</span>
-                        <span>#${golfer.world_ranking || '999'}</span>
+                        <span>World Rank:</span>
+                        <span class="${rankingClass}">${rankingDisplay}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>Career Earnings:</span>
+                        <span>${earnings}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>2025 Earnings:</span>
+                        <span>${seasonEarnings}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>Cuts Made:</span>
+                        <span>${cutsData}</span>
+                    </div>
+                    <div class="golfer-stat">
+                        <span>Top 10s:</span>
+                        <span>${golfer.top_10_finishes || 0}</span>
                     </div>
                 </div>
-                ${isSelected ? '<div style="text-align: center; color: #4CAF50; font-weight: bold; margin-top: 0.5rem;">✓ SELECTED</div>' : ''}
+                ${isSelected ? '<div class="selected-indicator">✓ SELECTED</div>' : ''}
+                ${golfer.data_source === 'complete_professional_load' || golfer.data_source === 'professional_load' ? '<div class="pro-badge">PRO DATA</div>' : ''}
             </div>
         `;
     }).join('');
@@ -838,6 +1006,7 @@ function updateSelectedGolfersDisplay() {
                 </div>
                 <div style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
                     Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}
+                    ${golfer.career_earnings ? ' • ' + formatCurrency(golfer.career_earnings) : ''}
                 </div>
             </div>
         `).join('');
@@ -890,7 +1059,7 @@ async function saveTeam() {
         // Show loading state
         const saveBtn = document.getElementById('saveTeamBtn');
         saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        saveBtn.innerHTML = '<i class="loading-spinner"></i> Saving...';
         
         const golferIds = selectedGolfers.map(g => g.id);
         
@@ -960,9 +1129,37 @@ function getCountryFlag(country) {
         'SCO': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
         'RSA': '🇿🇦',
         'CAN': '🇨🇦',
-        'KOR': '🇰🇷'
+        'KOR': '🇰🇷',
+        'CHI': '🇨🇱',
+        'MEX': '🇲🇽',
+        'ITA': '🇮🇹',
+        'FRA': '🇫🇷',
+        'GER': '🇩🇪',
+        'SWE': '🇸🇪',
+        'ARG': '🇦🇷',
+        'AUT': '🇦🇹',
+        'COL': '🇨🇴',
+        'TPE': '🇹🇼',
+        'NZL': '🇳🇿',
+        'POL': '🇵🇱',
+        'DEN': '🇩🇰',
+        'FIJ': '🇫🇯',
+        'SVK': '🇸🇰',
+        'THA': '🇹🇭'
     };
     return flags[country] || '🏌️';
+}
+
+// Utility function to format currency
+function formatCurrency(amount) {
+    if (!amount || amount === 0) return '$0';
+    if (amount >= 1000000) {
+        return '$' + (amount / 1000000).toFixed(1) + 'M';
+    } else if (amount >= 1000) {
+        return '$' + (amount / 1000).toFixed(0) + 'K';
+    } else {
+        return '$' + amount.toLocaleString();
+    }
 }
 
 function logout() {
@@ -993,7 +1190,7 @@ function showAlert(message, type = 'info') {
         alertDiv.style.opacity = '0';
         alertDiv.style.transition = 'opacity 0.3s ease';
         setTimeout(() => alertDiv.remove(), 300);
-    }, 4000);
+    }, 5000);
 }
 
 function debounce(func, wait) {
