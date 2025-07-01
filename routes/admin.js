@@ -1345,6 +1345,237 @@ router.get('/tournaments/:id/leaderboard', async (req, res) => {
     }
 });
 
+// Add these routes to your routes/admin.js file
+
+// Tournament automation status
+router.get('/tournaments/automation-status', async (req, res) => {
+    try {
+        const stats = await query(`
+            SELECT 
+                COUNT(*) as total_tournaments,
+                COUNT(CASE WHEN is_active = true THEN 1 END) as active_tournaments,
+                COUNT(CASE WHEN is_completed = true THEN 1 END) as completed_tournaments,
+                COUNT(CASE WHEN start_date <= CURRENT_TIMESTAMP AND end_date >= CURRENT_TIMESTAMP AND is_active = false THEN 1 END) as should_be_active,
+                COUNT(CASE WHEN end_date < CURRENT_TIMESTAMP AND is_active = true THEN 1 END) as should_be_completed
+            FROM tournaments
+        `);
+        
+        const recentlyCreated = await query(`
+            SELECT name, start_date, is_active, created_at
+            FROM tournaments 
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+            ORDER BY created_at DESC
+            LIMIT 10
+        `);
+        
+        const upcomingTournaments = await query(`
+            SELECT name, start_date, end_date, is_active
+            FROM tournaments 
+            WHERE start_date > CURRENT_TIMESTAMP
+            ORDER BY start_date ASC
+            LIMIT 5
+        `);
+        
+        res.json({
+            status: 'operational',
+            stats: stats.rows[0],
+            recentlyCreated: recentlyCreated.rows,
+            upcomingTournaments: upcomingTournaments.rows,
+            automationFeatures: [
+                'Auto-activate tournaments when they start',
+                'Auto-complete tournaments when they end', 
+                'Detect new tournaments from ESPN',
+                'Hourly tournament status updates'
+            ]
+        });
+        
+    } catch (error) {
+        console.error('Tournament automation status failed:', error);
+        res.status(500).json({ error: 'Failed to get automation status' });
+    }
+});
+
+// Manual tournament management trigger
+router.post('/tournaments/auto-manage', async (req, res) => {
+    try {
+        console.log('🔄 Manual tournament auto-management triggered by admin...');
+        
+        const scrapingService = require('../../services/scrapingService');
+        
+        // Don't await - let it run in background
+        scrapingService.autoManageTournaments().catch(error => {
+            console.error('Background tournament management failed:', error);
+        });
+        
+        res.json({ 
+            message: 'Tournament auto-management started in background',
+            note: 'This will activate/deactivate tournaments and detect new ones from ESPN'
+        });
+        
+    } catch (error) {
+        console.error('Manual tournament management trigger failed:', error);
+        res.status(500).json({ error: 'Failed to trigger tournament management' });
+    }
+});
+
+// Bulk import PGA Tour schedule
+router.post('/tournaments/import-schedule', async (req, res) => {
+    try {
+        console.log('📅 Importing 2025 PGA Tour schedule...');
+        
+        // Major tournaments for 2025 (you can expand this list)
+        const pga2025Schedule = [
+            {
+                name: 'The Sentry',
+                course: 'Kapalua Golf Club',
+                location: 'Maui, HI',
+                startDate: new Date('2025-01-02'),
+                endDate: new Date('2025-01-05'),
+                prizeFund: 20000000
+            },
+            {
+                name: 'Sony Open in Hawaii', 
+                course: 'Waialae Country Club',
+                location: 'Honolulu, HI',
+                startDate: new Date('2025-01-09'),
+                endDate: new Date('2025-01-12'),
+                prizeFund: 8300000
+            },
+            {
+                name: 'The American Express',
+                course: 'PGA West',
+                location: 'La Quinta, CA',
+                startDate: new Date('2025-01-23'),
+                endDate: new Date('2025-01-26'),
+                prizeFund: 8800000
+            },
+            {
+                name: 'Farmers Insurance Open',
+                course: 'Torrey Pines Golf Course',
+                location: 'San Diego, CA',
+                startDate: new Date('2025-01-30'),
+                endDate: new Date('2025-02-02'),
+                prizeFund: 8400000
+            },
+            {
+                name: 'WM Phoenix Open',
+                course: 'TPC Scottsdale',
+                location: 'Scottsdale, AZ',
+                startDate: new Date('2025-02-06'),
+                endDate: new Date('2025-02-09'),
+                prizeFund: 9100000
+            },
+            {
+                name: 'The Genesis Invitational',
+                course: 'Riviera Country Club',
+                location: 'Pacific Palisades, CA',
+                startDate: new Date('2025-02-13'),
+                endDate: new Date('2025-02-16'),
+                prizeFund: 12000000
+            },
+            {
+                name: 'The Players Championship',
+                course: 'TPC Sawgrass',
+                location: 'Ponte Vedra Beach, FL',
+                startDate: new Date('2025-03-13'),
+                endDate: new Date('2025-03-16'),
+                prizeFund: 25000000
+            },
+            {
+                name: 'The Masters Tournament',
+                course: 'Augusta National Golf Club',
+                location: 'Augusta, GA',
+                startDate: new Date('2025-04-10'),
+                endDate: new Date('2025-04-13'),
+                prizeFund: 18000000
+            },
+            {
+                name: 'PGA Championship',
+                course: 'Quail Hollow Club',
+                location: 'Charlotte, NC',
+                startDate: new Date('2025-05-15'),
+                endDate: new Date('2025-05-18'),
+                prizeFund: 17500000
+            },
+            {
+                name: 'U.S. Open',
+                course: 'Oakmont Country Club',
+                location: 'Oakmont, PA',
+                startDate: new Date('2025-06-12'),
+                endDate: new Date('2025-06-15'),
+                prizeFund: 20000000
+            },
+            {
+                name: 'The Open Championship',
+                course: 'Royal Portrush Golf Club',
+                location: 'Portrush, Northern Ireland',
+                startDate: new Date('2025-07-17'),
+                endDate: new Date('2025-07-20'),
+                prizeFund: 16500000
+            }
+        ];
+        
+        let createdCount = 0;
+        let skippedCount = 0;
+        
+        for (const tournament of pga2025Schedule) {
+            try {
+                // Check if tournament already exists
+                const existing = await query(`
+                    SELECT id FROM tournaments 
+                    WHERE LOWER(name) = LOWER($1)
+                    LIMIT 1
+                `, [tournament.name]);
+                
+                if (existing.rows.length === 0) {
+                    await query(`
+                        INSERT INTO tournaments (
+                            name, course_name, location, start_date, end_date,
+                            is_active, prize_fund, course_par
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    `, [
+                        tournament.name,
+                        tournament.course,
+                        tournament.location,
+                        tournament.startDate,
+                        tournament.endDate,
+                        false, // Will be auto-activated when time comes
+                        tournament.prizeFund,
+                        72
+                    ]);
+                    
+                    createdCount++;
+                    console.log(`✅ Created: ${tournament.name}`);
+                } else {
+                    skippedCount++;
+                }
+                
+            } catch (error) {
+                console.error(`❌ Error creating ${tournament.name}:`, error.message);
+            }
+        }
+        
+        res.json({
+            success: true,
+            message: `PGA Tour schedule import completed!`,
+            stats: {
+                tournaments_created: createdCount,
+                tournaments_skipped: skippedCount,
+                total_processed: pga2025Schedule.length
+            },
+            note: 'Tournaments will be automatically activated when they start'
+        });
+        
+    } catch (error) {
+        console.error('❌ Schedule import failed:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to import tournament schedule', 
+            details: error.message 
+        });
+    }
+});
+
 // Update golfer statistics - NEW ENDPOINT
 router.post('/update-golfer-stats', async (req, res) => {
     try {
