@@ -678,6 +678,122 @@ async function createTestTournament() {
 
 // Add these functions to your public/app.js file
 
+async function checkTournamentAutomation() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        showAlert('🔍 Checking tournament automation status...', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/tournaments/automation-status`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const stats = data.stats;
+            
+            showAlert(`🏆 Tournament Automation Status:
+• Total tournaments: ${stats.total_tournaments}
+• Active tournaments: ${stats.active_tournaments}
+• Completed tournaments: ${stats.completed_tournaments}
+• Should be active: ${stats.should_be_active}
+• Should be completed: ${stats.should_be_completed}
+• Recently created: ${data.recentlyCreated.length}`, 'success');
+            
+            if (data.recentlyCreated.length > 0) {
+                console.log('Recently created tournaments:', data.recentlyCreated);
+            }
+            
+            if (stats.should_be_active > 0 || stats.should_be_completed > 0) {
+                showAlert(`⚠️ ${stats.should_be_active + stats.should_be_completed} tournaments need status updates`, 'warning');
+            }
+            
+        } else {
+            showAlert('❌ Failed to check tournament automation', 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Tournament automation check failed: ' + error.message, 'error');
+    }
+}
+
+async function triggerTournamentAutoManagement() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmTrigger = confirm('Trigger automatic tournament management? This will:\n• Activate tournaments that should be active\n• Complete tournaments that are finished\n• Detect new tournaments from ESPN');
+    if (!confirmTrigger) return;
+    
+    try {
+        showAlert('🏆 Triggering tournament auto-management...', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/tournaments/auto-manage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showAlert('✅ Tournament auto-management started! Check status in 1-2 minutes.', 'success');
+            showAlert('🔍 This will activate/complete tournaments and detect new ones from ESPN.', 'info');
+        } else {
+            showAlert('❌ Failed to trigger tournament management: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Tournament management failed: ' + error.message, 'error');
+    }
+}
+
+async function importPGATourSchedule() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmImport = confirm('Import the complete 2025 PGA Tour schedule? This will add 11 major tournaments including The Masters, U.S. Open, and PGA Championship.');
+    if (!confirmImport) return;
+    
+    try {
+        showAlert('📅 Importing 2025 PGA Tour schedule...', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/tournaments/import-schedule`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showAlert(`✅ SUCCESS! Imported ${data.stats.tournaments_created} new tournaments!`, 'success');
+            showAlert(`📊 Processed ${data.stats.total_processed} tournaments, skipped ${data.stats.tournaments_skipped} existing ones`, 'info');
+            showAlert('🤖 Tournaments will be automatically activated when they start!', 'success');
+            
+            // Refresh admin stats and tournament displays
+            loadAdminStats();
+            loadTournaments();
+            
+        } else {
+            showAlert('❌ Failed to import schedule: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Schedule import failed: ' + error.message, 'error');
+    }
+}
+
+// Add these functions to your public/app.js file
+
 async function checkScrapingStatus() {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
