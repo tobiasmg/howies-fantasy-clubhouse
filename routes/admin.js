@@ -1279,40 +1279,80 @@ router.get('/teams/:id/details', async (req, res) => {
     }
 });
 
-router.put('/teams/:id', async (req, res) => {
+// Update in routes/admin.js - Replace existing team details route
+
+router.get('/teams/:id/details', async (req, res) => {
     try {
         const teamId = req.params.id;
-        const { team_name } = req.body;
         
-        if (!team_name || !team_name.trim()) {
-            return res.status(400).json({ error: 'Team name is required' });
-        }
+        const teamResult = await query(`
+            SELECT 
+                t.*,
+                u.username,
+                u.email,
+                tour.name as tournament_name,
+                tour.start_date,
+                tour.end_date,
+                tour.is_active,
+                tour.is_completed
+            FROM teams t
+            JOIN users u ON t.user_id = u.id
+            JOIN tournaments tour ON t.tournament_id = tour.id
+            WHERE t.id = $1
+        `, [teamId]);
         
-        // Update the team
-        const result = await query(`
-            UPDATE teams 
-            SET team_name = $1, updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
-            RETURNING *
-        `, [team_name.trim(), teamId]);
-        
-        if (result.rows.length === 0) {
+        if (teamResult.rows.length === 0) {
             return res.status(404).json({ error: 'Team not found' });
         }
         
-        console.log(`✏️ Team ${teamId} updated by admin ${req.user.email}`);
+        const team = teamResult.rows[0];
         
-        res.json({ 
-            message: 'Team updated successfully',
-            team: result.rows[0]
+        // Get complete golfer details with all necessary information
+        const golferIds = [
+            team.golfer1_id, team.golfer2_id, team.golfer3_id,
+            team.golfer4_id, team.golfer5_id, team.golfer6_id
+        ].filter(Boolean);
+        
+        const golfers = [];
+        for (const golferId of golferIds) {
+            const golferResult = await query(`
+                SELECT 
+                    id, name, country, world_ranking, 
+                    pga_tour_wins, major_wins, career_earnings, 
+                    season_earnings, fedex_cup_points, owgr_points,
+                    data_source, last_scraped, is_active
+                FROM golfers 
+                WHERE id = $1
+            `, [golferId]);
+            
+            if (golferResult.rows.length > 0) {
+                golfers.push(golferResult.rows[0]);
+            }
+        }
+        
+        // Determine if team can be edited
+        const startDate = new Date(team.start_date);
+        const now = new Date();
+        const canEditGolfers = startDate > now || req.user.isAdmin;
+        const canEditName = !team.is_completed;
+        
+        res.json({
+            ...team,
+            golfers: golfers,
+            can_edit_golfers: canEditGolfers,
+            can_edit_name: canEditName,
+            tournament_status: {
+                is_upcoming: startDate > now,
+                is_active: team.is_active && startDate <= now && new Date(team.end_date) >= now,
+                is_completed: team.is_completed
+            }
         });
         
     } catch (error) {
-        console.error('Error updating team:', error);
-        res.status(500).json({ error: 'Failed to update team' });
+        console.error('Error loading team details:', error);
+        res.status(500).json({ error: 'Failed to load team details' });
     }
 });
-
 // Enhanced leaderboard route for tournament management
 router.get('/tournaments/:id/leaderboard', async (req, res) => {
     try {
