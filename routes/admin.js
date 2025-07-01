@@ -1400,21 +1400,64 @@ router.post('/tournaments/auto-manage', async (req, res) => {
     try {
         console.log('🔄 Manual tournament auto-management triggered by admin...');
         
-        const scrapingService = require('../../services/scrapingService');
+        // Simple tournament management without external scraping service
+        let activatedCount = 0;
+        let completedCount = 0;
         
-        // Don't await - let it run in background
-        scrapingService.autoManageTournaments().catch(error => {
-            console.error('Background tournament management failed:', error);
-        });
+        // Auto-activate tournaments that should be active
+        const activated = await query(`
+            UPDATE tournaments 
+            SET is_active = true, updated_at = CURRENT_TIMESTAMP
+            WHERE is_active = false 
+            AND start_date <= CURRENT_TIMESTAMP 
+            AND end_date >= CURRENT_TIMESTAMP
+            AND is_completed = false
+            RETURNING name
+        `);
+        activatedCount = activated.rows.length;
+        
+        // Auto-complete tournaments that are finished
+        const completed = await query(`
+            UPDATE tournaments 
+            SET is_active = false, is_completed = true, updated_at = CURRENT_TIMESTAMP
+            WHERE is_active = true 
+            AND end_date < CURRENT_TIMESTAMP
+            RETURNING name
+        `);
+        completedCount = completed.rows.length;
+        
+        // Log results
+        if (activatedCount > 0) {
+            console.log(`🟢 Auto-activated ${activatedCount} tournaments:`);
+            activated.rows.forEach(t => console.log(`   • ${t.name}`));
+        }
+        
+        if (completedCount > 0) {
+            console.log(`🔴 Auto-completed ${completedCount} tournaments:`);
+            completed.rows.forEach(t => console.log(`   • ${t.name}`));
+        }
+        
+        if (activatedCount === 0 && completedCount === 0) {
+            console.log('✅ All tournaments are already in correct status');
+        }
         
         res.json({ 
-            message: 'Tournament auto-management started in background',
-            note: 'This will activate/deactivate tournaments and detect new ones from ESPN'
+            success: true,
+            message: 'Tournament auto-management completed successfully!',
+            results: {
+                activated: activatedCount,
+                completed: completedCount,
+                total_processed: activatedCount + completedCount
+            }
         });
         
     } catch (error) {
         console.error('Manual tournament management trigger failed:', error);
-        res.status(500).json({ error: 'Failed to trigger tournament management' });
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to trigger tournament management',
+            details: error.message 
+        });
     }
 });
 
