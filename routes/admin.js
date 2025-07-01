@@ -1907,5 +1907,195 @@ router.post('/cleanup-invalid-golfers', async (req, res) => {
     }
 });
 
+// 📁 Add this route to routes/admin.js
+
+// CSV Upload route for OWGR data
+router.post('/upload-owgr-csv', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        console.log('📊 Processing OWGR CSV upload...');
+        
+        const { csvData } = req.body;
+        
+        if (!csvData || !Array.isArray(csvData)) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'No CSV data provided or invalid format' 
+            });
+        }
+        
+        console.log(`📊 Processing ${csvData.length} rows of OWGR data...`);
+        
+        let processedCount = 0;
+        let addedCount = 0;
+        let updatedCount = 0;
+        let skippedCount = 0;
+        
+        await query('BEGIN');
+        
+        for (const row of csvData) {
+            try {
+                // Extract data from CSV row
+                const ranking = parseInt(row['RANKING']) || parseInt(row['ranking']) || 999;
+                const name = (row['NAME'] || row['name'] || '').trim();
+                const firstName = (row['First Name'] || row['first_name'] || '').trim();
+                const lastName = (row['Last Name'] || row['last_name'] || '').trim();
+                const country = (row['CTRY'] || row['ctry'] || row['country'] || '').trim();
+                const averagePoints = parseFloat(row['AVERAGE POINTS'] || row['average_points']) || 0;
+                const totalPoints = parseFloat(row['TOTAL POINTS'] || row['total_points']) || 0;
+                const eventsPlayed = parseInt(row['EVENTS PLAYED (ACTUAL)'] || row['events_played']) || 0;
+                
+                // Build full name if not provided
+                let fullName = name;
+                if (!fullName && firstName && lastName) {
+                    fullName = `${firstName} ${lastName}`.trim();
+                }
+                
+                // Validate golfer data
+                if (!fullName || fullName.length < 4 || !fullName.includes(' ')) {
+                    skippedCount++;
+                    continue;
+                }
+                
+                // Skip if name contains invalid patterns
+                if (/^\d+$/.test(fullName) || 
+                    fullName.toLowerCase().includes('undefined') ||
+                    fullName.toLowerCase().includes('null')) {
+                    skippedCount++;
+                    continue;
+                }
+                
+                // Clean up country code
+                let countryCode = country.toUpperCase();
+                if (countryCode.length > 3) {
+                    // Convert common country names to codes
+                    const countryMap = {
+                        'UNITED STATES': 'USA',
+                        'GREAT BRITAIN': 'GBR', 
+                        'ENGLAND': 'ENG',
+                        'SCOTLAND': 'SCO',
+                        'NORTHERN IRELAND': 'NIR',
+                        'SOUTH AFRICA': 'RSA',
+                        'NEW ZEALAND': 'NZL'
+                    };
+                    countryCode = countryMap[countryCode] || countryCode.substring(0, 3);
+                }
+                
+                // Insert or update golfer
+                const result = await query(`
+                    INSERT INTO golfers (
+                        name, country, world_ranking, owgr_points, 
+                        season_earnings, total_events, is_active, 
+                        data_source, last_scraped
+                    ) VALUES ($1, $2, $3, $4, $5, $6, true, 'owgr_csv_upload', CURRENT_TIMESTAMP)
+                    ON CONFLICT (name) DO UPDATE SET
+                        world_ranking = LEAST(EXCLUDED.world_ranking, golfers.world_ranking),
+                        owgr_points = GREATEST(EXCLUDED.owgr_points, golfers.owgr_points),
+                        country = CASE 
+                            WHEN golfers.country IN ('Unknown', '') THEN EXCLUDED.country 
+                            ELSE golfers.country 
+                        END,
+                        total_events = GREATEST(EXCLUDED.total_events, golfers.total_events),
+                        data_source = 'owgr_csv_upload',
+                        last_scraped = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    RETURNING (CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END) as action
+                `, [
+                    fullName,
+                    countryCode || 'UNK',
+                    ranking,
+                    averagePoints || totalPoints,
+                    0, // season_earnings (not in OWGR data)
+                    eventsPlayed
+                ]);
+                
+                if (result.rows[0]?.action === 'inserted') {
+                    addedCount++;
+                } else {
+                    updatedCount++;
+                }
+                
+                processedCount++;
+                
+                // Log progress every 100 golfers
+                if (processedCount % 100 === 0) {
+                    console.log(`📊 Processed ${processedCount} golfers...`);
+                }
+                
+            } catch (rowError) {
+                console.error(`❌ Error processing row:`, rowError.message);
+                skippedCount++;
+                continue;
+            }
+        }
+        
+        await query('COMMIT');
+        
+        // Get final count
+        const finalCount = await query(`
+            SELECT COUNT(*) as count FROM golfers WHERE is_active = true
+        `);
+        
+        const stats = {
+            total_processed: processedCount,
+            golfers_added: addedCount,
+            golfers_updated: updatedCount,
+            rows_skipped: skippedCount,
+            final_golfer_count: finalCount.rows[0].count,
+            data_source: 'OWGR CSV Upload'
+        };
+        
+        console.log('✅ OWGR CSV upload completed:', stats);
+        
+        res.json({
+            success: true,
+            message: `Successfully processed ${processedCount} golfers from OWGR CSV!`,
+            stats: stats
+        });
+        
+    } catch (error) {
+        await query('ROLLBACK');
+        console.error('❌ OWGR CSV upload failed:', error);
+        res.status(500).json({
+            success: false,
+            error: 'CSV upload failed',
+            details: error.message
+        });
+    }
+});
+
+// Get upload statistics
+router.get('/upload-stats', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const stats = await query(`
+            SELECT 
+                data_source,
+                COUNT(*) as count,
+                MIN(last_scraped) as first_upload,
+                MAX(last_scraped) as last_upload
+            FROM golfers 
+            WHERE is_active = true
+            GROUP BY data_source
+            ORDER BY count DESC
+        `);
+        
+        const recentUploads = await query(`
+            SELECT name, country, world_ranking, data_source, last_scraped
+            FROM golfers 
+            WHERE data_source = 'owgr_csv_upload'
+            ORDER BY last_scraped DESC
+            LIMIT 10
+        `);
+        
+        res.json({
+            upload_sources: stats.rows,
+            recent_csv_uploads: recentUploads.rows,
+            total_golfers: await query('SELECT COUNT(*) as count FROM golfers WHERE is_active = true')
+        });
+        
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
 
