@@ -1033,6 +1033,58 @@
                     </div>
                 </div>
 
+                <!-- Add this new section to your admin dashboard in index.html, after the System Management section -->
+
+                <!-- Scraping Service Monitoring -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">🕷️ Automated Scraping Service</h2>
+                </div>
+    
+                <div style="margin-bottom: 1.5rem;">
+                    <div class="alert alert-info">
+                    <strong>Automated Updates:</strong><br>
+                    • Golfer rankings update daily at 6:00 AM from OWGR<br>
+                    • Live tournament scores update every 15 minutes during active tournaments<br>
+                    • Detailed stats (earnings, cuts) require manual updates
+                </div>
+            </div>
+    
+    <div class="admin-action-grid">
+        <div class="admin-action-item">
+            <h4><i class="fas fa-heartbeat"></i> Check Scraping Status</h4>
+            <p>View when golfers and scores were last updated, and see recent scraping activity.</p>
+            <button class="btn" onclick="checkScrapingStatus()">
+                Check Status
+            </button>
+        </div>
+        
+        <div class="admin-action-item">
+            <h4><i class="fas fa-trophy"></i> Update Rankings</h4>
+            <p>Manually trigger golfer world rankings update from OWGR website.</p>
+            <button class="btn btn-warning" onclick="manualUpdateRankings()">
+                Update Rankings
+            </button>
+        </div>
+        
+        <div class="admin-action-item">
+            <h4><i class="fas fa-chart-line"></i> Update Live Scores</h4>
+            <p>Manually trigger live tournament scores update from ESPN Golf.</p>
+            <button class="btn btn-warning" onclick="manualUpdateScores()">
+                Update Scores
+            </button>
+        </div>
+        
+        <div class="admin-action-item">
+            <h4><i class="fas fa-chart-line"></i> Update Golfer Statistics</h4>
+            <p>Populate missing golfer data including 2025 earnings, cuts made, top 10 finishes, and tournament statistics.</p>
+            <button class="btn btn-success" onclick="updateGolferStatistics()">
+                Update Golfer Stats
+            </button>
+        </div>
+    </div>
+</div>
+
                 <!-- Tournament Management -->
                 <div class="card">
                     <div class="card-header">
