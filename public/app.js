@@ -1078,6 +1078,530 @@ async function saveTeam() {
     }
 }
 
+// Add these functions to your public/app.js file
+// Insert them after the existing admin functions (around line 1000+)
+
+// ===== USER TEAM MANAGEMENT FUNCTIONS =====
+
+async function loadTeamManagement() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const container = document.getElementById('teamManagementContainer');
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading users with teams...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch('/api/admin/users/with-teams', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const users = await response.json();
+        
+        if (users.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-users"></i>
+                    <h3>No Users with Teams</h3>
+                    <p>No users have created teams yet. Use the search function to find all users.</p>
+                    <button class="btn btn-secondary" onclick="loadAllUsers()">
+                        <i class="fas fa-search"></i> Load All Users
+                    </button>
+                </div>
+            `;
+            return;
+        }
+        
+        displayTeamManagement(users);
+        
+    } catch (error) {
+        console.error('Error loading team management:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Error Loading Teams</h3>
+                <p>Error: ${error.message}</p>
+                <button class="btn" onclick="loadTeamManagement()">Try Again</button>
+            </div>
+        `;
+        showAlert('Failed to load team management: ' + error.message, 'error');
+    }
+}
+
+async function searchUsers() {
+    const searchTerm = document.getElementById('userSearchInput').value.trim();
+    
+    if (!searchTerm || searchTerm.length < 2) {
+        showAlert('Please enter at least 2 characters to search', 'warning');
+        return;
+    }
+    
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const container = document.getElementById('teamManagementContainer');
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Searching for "${searchTerm}"...</p>
+        </div>
+    `;
+    
+    try {
+        const response = await fetch(`/api/admin/users/search?q=${encodeURIComponent(searchTerm)}`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const users = await response.json();
+        
+        if (users.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-search"></i>
+                    <h3>No Users Found</h3>
+                    <p>No users found matching "${searchTerm}". Try a different search term.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        displayTeamManagement(users);
+        showAlert(`Found ${users.length} user(s) matching "${searchTerm}"`, 'success');
+        
+    } catch (error) {
+        console.error('Error searching users:', error);
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Search Error</h3>
+                <p>Error: ${error.message}</p>
+                <button class="btn" onclick="searchUsers()">Try Again</button>
+            </div>
+        `;
+        showAlert('User search failed: ' + error.message, 'error');
+    }
+}
+
+async function loadAllUsers() {
+    // Search for a common character to get all users
+    document.getElementById('userSearchInput').value = '@';
+    await searchUsers();
+}
+
+function displayTeamManagement(users) {
+    const container = document.getElementById('teamManagementContainer');
+    if (!container) return;
+    
+    container.innerHTML = users.map(user => {
+        return `
+            <div class="team-management-item">
+                <div class="team-user-header">
+                    <div>
+                        <h4>${user.username}</h4>
+                        <p><strong>Email:</strong> ${user.email}</p>
+                        <p><strong>Name:</strong> ${user.first_name || ''} ${user.last_name || ''}</p>
+                        <p><strong>Teams:</strong> ${user.teams?.length || 0}</p>
+                    </div>
+                </div>
+                
+                ${user.teams && user.teams.length > 0 ? `
+                    <div class="user-teams-list">
+                        ${user.teams.map(team => `
+                            <div class="user-team-item">
+                                <div>
+                                    <strong>${team.team_name || 'Unnamed Team'}</strong>
+                                    <br>
+                                    <small>Tournament: ${team.tournament_name}</small>
+                                    <br>
+                                    <small>Score: ${team.total_score || 0} | Created: ${new Date(team.created_at).toLocaleDateString()}</small>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-small" onclick="editTeamFromManagement(${team.id})">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="btn btn-small btn-danger" onclick="deleteTeamFromManagement(${team.id}, '${team.team_name?.replace(/'/g, "\\'")}', '${user.username}')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                ` : `
+                    <div style="color: #666; font-style: italic; padding: 1rem;">
+                        This user has not created any teams yet.
+                    </div>
+                `}
+            </div>
+        `;
+    }).join('');
+}
+
+async function editTeamFromManagement(teamId) {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        // Get team details
+        const response = await fetch(`/api/admin/teams/${teamId}/details`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to load team details');
+        }
+        
+        const teamDetails = await response.json();
+        
+        // Create a modal or redirect to team editing interface
+        showTeamEditModal(teamDetails);
+        
+    } catch (error) {
+        console.error('Error loading team for editing:', error);
+        showAlert('Failed to load team details: ' + error.message, 'error');
+    }
+}
+
+function showTeamEditModal(teamDetails) {
+    // Create a modal for editing team
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 2rem;
+        border-radius: 10px;
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    `;
+    
+    modalContent.innerHTML = `
+        <div class="team-edit-modal">
+            <h3>Edit Team: ${teamDetails.team_name || 'Unnamed Team'}</h3>
+            
+            <div class="team-edit-section">
+                <h4><i class="fas fa-info-circle"></i> Team Information</h4>
+                <p><strong>User:</strong> ${teamDetails.username} (${teamDetails.email})</p>
+                <p><strong>Tournament:</strong> ${teamDetails.tournament_name}</p>
+                <p><strong>Start Date:</strong> ${new Date(teamDetails.start_date).toLocaleDateString()}</p>
+                <p><strong>Status:</strong> 
+                    ${teamDetails.can_edit_golfers ? 
+                        '<span style="color: #4CAF50;">Can edit golfers</span>' : 
+                        '<span style="color: #f44336;">Golfers locked (tournament started)</span>'
+                    }
+                </p>
+            </div>
+            
+            <div class="team-edit-section">
+                <h4><i class="fas fa-user"></i> Team Name</h4>
+                <input type="text" id="editTeamName" class="form-control" value="${teamDetails.team_name || ''}" placeholder="Enter team name">
+            </div>
+            
+            <div class="team-edit-section">
+                <h4><i class="fas fa-golf-ball"></i> Current Golfers</h4>
+                <div id="currentGolfers" class="selected-golfers-container has-golfers">
+                    ${teamDetails.golfers.map(golfer => `
+                        <div class="selected-golfer-item">
+                            <div>
+                                <span class="country-flag">${getCountryFlag(golfer.country)}</span>
+                                <strong>${golfer.name}</strong>
+                                <br>
+                                <small>Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}</small>
+                            </div>
+                            ${teamDetails.can_edit_golfers ? `
+                                <button type="button" class="remove-golfer-btn" onclick="removeGolferFromEdit(${golfer.id})">×</button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            ${teamDetails.can_edit_golfers ? `
+                <div class="team-edit-section">
+                    <h4><i class="fas fa-search"></i> Search & Add Golfers</h4>
+                    <input type="text" id="golferSearchInput" class="golfer-search-input" placeholder="Search for golfers to add..." oninput="searchGolfersForEdit(this.value)">
+                    <div id="golferSearchResults" class="golfer-search-results" style="display: none;"></div>
+                </div>
+            ` : ''}
+            
+            <div style="margin-top: 2rem; text-align: center; display: flex; gap: 1rem; justify-content: center;">
+                <button class="btn btn-success" onclick="saveTeamChanges(${teamDetails.id})">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+                <button class="btn btn-secondary" onclick="closeTeamEditModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Store team details globally for editing
+    window.editingTeamDetails = teamDetails;
+    window.editingTeamModal = modal;
+}
+
+function closeTeamEditModal() {
+    if (window.editingTeamModal) {
+        document.body.removeChild(window.editingTeamModal);
+        window.editingTeamModal = null;
+        window.editingTeamDetails = null;
+    }
+}
+
+async function searchGolfersForEdit(searchTerm) {
+    if (!searchTerm || searchTerm.length < 2) {
+        document.getElementById('golferSearchResults').style.display = 'none';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/golfers/search?q=${encodeURIComponent(searchTerm)}&limit=20`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) return;
+        
+        const golfers = await response.json();
+        const resultsContainer = document.getElementById('golferSearchResults');
+        
+        if (golfers.length === 0) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
+        
+        const currentGolferIds = window.editingTeamDetails.golfers.map(g => g.id);
+        
+        resultsContainer.innerHTML = golfers.map(golfer => {
+            const isSelected = currentGolferIds.includes(golfer.id);
+            const isDisabled = currentGolferIds.length >= 6 && !isSelected;
+            
+            return `
+                <div class="golfer-result-item ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}">
+                    <div>
+                        <span class="country-flag">${getCountryFlag(golfer.country)}</span>
+                        <strong>${golfer.name}</strong>
+                        <br>
+                        <small>Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}</small>
+                    </div>
+                    <button type="button" class="add-golfer-btn" 
+                            onclick="addGolferToEdit(${golfer.id}, '${golfer.name.replace(/'/g, "\\'")}', '${golfer.country}', ${golfer.world_ranking || 999})"
+                            ${isSelected || isDisabled ? 'disabled' : ''}>
+                        ${isSelected ? 'Selected' : 'Add'}
+                    </button>
+                </div>
+            `;
+        }).join('');
+        
+        resultsContainer.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error searching golfers:', error);
+    }
+}
+
+function addGolferToEdit(golferId, golferName, country, ranking) {
+    if (!window.editingTeamDetails) return;
+    
+    // Check if already selected
+    if (window.editingTeamDetails.golfers.some(g => g.id === golferId)) {
+        showAlert('Golfer already selected', 'warning');
+        return;
+    }
+    
+    // Check if at capacity
+    if (window.editingTeamDetails.golfers.length >= 6) {
+        showAlert('Maximum 6 golfers allowed', 'error');
+        return;
+    }
+    
+    // Add golfer
+    window.editingTeamDetails.golfers.push({
+        id: golferId,
+        name: golferName,
+        country: country,
+        world_ranking: ranking
+    });
+    
+    // Refresh the display
+    refreshCurrentGolfersDisplay();
+    
+    // Clear search
+    document.getElementById('golferSearchInput').value = '';
+    document.getElementById('golferSearchResults').style.display = 'none';
+    
+    showAlert(`Added ${golferName} to team`, 'success');
+}
+
+function removeGolferFromEdit(golferId) {
+    if (!window.editingTeamDetails) return;
+    
+    const golferIndex = window.editingTeamDetails.golfers.findIndex(g => g.id === golferId);
+    if (golferIndex === -1) return;
+    
+    const removedGolfer = window.editingTeamDetails.golfers.splice(golferIndex, 1)[0];
+    
+    // Refresh the display
+    refreshCurrentGolfersDisplay();
+    
+    showAlert(`Removed ${removedGolfer.name} from team`, 'info');
+}
+
+function refreshCurrentGolfersDisplay() {
+    const container = document.getElementById('currentGolfers');
+    if (!container || !window.editingTeamDetails) return;
+    
+    container.innerHTML = window.editingTeamDetails.golfers.map(golfer => `
+        <div class="selected-golfer-item">
+            <div>
+                <span class="country-flag">${getCountryFlag(golfer.country)}</span>
+                <strong>${golfer.name}</strong>
+                <br>
+                <small>Rank #${golfer.world_ranking || '999'} • ${golfer.country || 'Unknown'}</small>
+            </div>
+            ${window.editingTeamDetails.can_edit_golfers ? `
+                <button type="button" class="remove-golfer-btn" onclick="removeGolferFromEdit(${golfer.id})">×</button>
+            ` : ''}
+        </div>
+    `).join('');
+    
+    container.className = `selected-golfers-container ${window.editingTeamDetails.golfers.length > 0 ? 'has-golfers' : ''}`;
+}
+
+async function saveTeamChanges(teamId) {
+    if (!window.editingTeamDetails) {
+        showAlert('No team data to save', 'error');
+        return;
+    }
+    
+    const teamName = document.getElementById('editTeamName').value.trim();
+    
+    if (!teamName) {
+        showAlert('Please enter a team name', 'error');
+        return;
+    }
+    
+    const golferIds = window.editingTeamDetails.golfers.map(g => g.id);
+    
+    // Validate golfer count if editing golfers is allowed
+    if (window.editingTeamDetails.can_edit_golfers && golferIds.length !== 6) {
+        showAlert('Please select exactly 6 golfers', 'error');
+        return;
+    }
+    
+    try {
+        const updateData = { team_name: teamName };
+        
+        // Only include golfer IDs if we're allowed to edit them
+        if (window.editingTeamDetails.can_edit_golfers) {
+            updateData.golfer_ids = golferIds;
+        }
+        
+        const response = await fetch(`/api/admin/teams/${teamId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to update team');
+        }
+        
+        const result = await response.json();
+        
+        showAlert(result.message || 'Team updated successfully!', 'success');
+        
+        // Close modal
+        closeTeamEditModal();
+        
+        // Refresh team management
+        loadTeamManagement();
+        
+    } catch (error) {
+        console.error('Error saving team changes:', error);
+        showAlert('Failed to save team changes: ' + error.message, 'error');
+    }
+}
+
+async function deleteTeamFromManagement(teamId, teamName, username) {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete the team "${teamName}" for user ${username}? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/teams/${teamId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete team');
+        }
+        
+        const result = await response.json();
+        showAlert(result.message || 'Team deleted successfully', 'success');
+        
+        // Refresh the team management display
+        loadTeamManagement();
+        
+    } catch (error) {
+        console.error('Error deleting team:', error);
+        showAlert('Failed to delete team: ' + error.message, 'error');
+    }
+}
+
 function updateCountryFilter(golferList) {
     const filter = document.getElementById('countryFilter');
     if (!filter) return;
