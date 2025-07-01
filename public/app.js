@@ -1841,39 +1841,23 @@ function displayGolfers(golferList) {
                     ${golfer.wins_this_season > 0 ? '<span class="wins-badge">🏆</span>' : ''}
                 </div>
                 <div class="golfer-stats">
-                    <div class="golfer-stat">
-                        <span>Country:</span>
-                        <span>${golfer.country || 'Unknown'}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>PGA Wins:</span>
-                        <span>${golfer.pga_tour_wins || 0}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>Majors:</span>
-                        <span>${golfer.major_wins || 0}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>World Rank:</span>
-                        <span class="${rankingClass}">${rankingDisplay}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>Career Earnings:</span>
-                        <span>${earnings}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>2025 Earnings:</span>
-                        <span>${seasonEarnings}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>Cuts Made:</span>
-                        <span>${cutsData}</span>
-                    </div>
-                    <div class="golfer-stat">
-                        <span>Top 10s:</span>
-                        <span>${golfer.top_10_finishes || 0}</span>
-                    </div>
-                </div>
+    <div class="golfer-stat">
+        <span>Country:</span>
+        <span>${golfer.country || 'Unknown'}</span>
+    </div>
+    <div class="golfer-stat">
+        <span>World Rank:</span>
+        <span class="${rankingClass}">${rankingDisplay}</span>
+    </div>
+    <div class="golfer-stat">
+        <span>OWGR Points:</span>
+        <span>${golfer.owgr_points ? golfer.owgr_points.toFixed(2) : 'N/A'}</span>
+    </div>
+    <div class="golfer-stat">
+        <span>Events Played:</span>
+        <span>${golfer.total_events || 'N/A'}</span>
+    </div>
+</div>
                 ${isSelected ? '<div class="selected-indicator">✓ SELECTED</div>' : ''}
                 ${golfer.data_source === 'complete_professional_load' || golfer.data_source === 'professional_load' ? '<div class="pro-badge">PRO DATA</div>' : ''}
             </div>
