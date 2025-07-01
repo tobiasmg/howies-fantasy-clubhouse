@@ -1795,46 +1795,94 @@ router.post('/scrape-real-250-golfers', async (req, res) => {
     }
 });
 
-// Add this route to routes/admin.js
+// Replace your existing cleanup route with this simpler version
 router.post('/cleanup-invalid-golfers', async (req, res) => {
     try {
         console.log('🧹 Cleaning up invalid golfer entries...');
         
-        // Delete golfers with invalid names (numbers, single words, etc.)
+        await query('BEGIN');
+        
+        // First, clear any team references to invalid golfers
+        await query(`
+            UPDATE teams SET 
+                golfer1_id = NULL WHERE golfer1_id IN (
+                    SELECT id FROM golfers WHERE 
+                    LENGTH(name) < 4 OR 
+                    name NOT LIKE '% %' OR 
+                    name ~ '^[0-9]+$'
+                )
+        `);
+        
+        await query(`
+            UPDATE teams SET 
+                golfer2_id = NULL WHERE golfer2_id IN (
+                    SELECT id FROM golfers WHERE 
+                    LENGTH(name) < 4 OR 
+                    name NOT LIKE '% %' OR 
+                    name ~ '^[0-9]+$'
+                )
+        `);
+        
+        await query(`
+            UPDATE teams SET 
+                golfer3_id = NULL WHERE golfer3_id IN (
+                    SELECT id FROM golfers WHERE 
+                    LENGTH(name) < 4 OR 
+                    name NOT LIKE '% %' OR 
+                    name ~ '^[0-9]+$'
+                )
+        `);
+        
+        await query(`
+            UPDATE teams SET 
+                golfer4_id = NULL WHERE golfer4_id IN (
+                    SELECT id FROM golfers WHERE 
+                    LENGTH(name) < 4 OR 
+                    name NOT LIKE '% %' OR 
+                    name ~ '^[0-9]+$'
+                )
+        `);
+        
+        await query(`
+            UPDATE teams SET 
+                golfer5_id = NULL WHERE golfer5_id IN (
+                    SELECT id FROM golfers WHERE 
+                    LENGTH(name) < 4 OR 
+                    name NOT LIKE '% %' OR 
+                    name ~ '^[0-9]+$'
+                )
+        `);
+        
+        await query(`
+            UPDATE teams SET 
+                golfer6_id = NULL WHERE golfer6_id IN (
+                    SELECT id FROM golfers WHERE 
+                    LENGTH(name) < 4 OR 
+                    name NOT LIKE '% %' OR 
+                    name ~ '^[0-9]+$'
+                )
+        `);
+        
+        console.log('✅ Cleared team references to invalid golfers');
+        
+        // Now delete invalid golfers safely
         const cleanupResult = await query(`
             DELETE FROM golfers 
             WHERE 
-                -- Names that are just numbers
-                name ~ '^[0-9]+$' 
-                OR name ~ '^[0-9]+\.[0-9]+$'
-                -- Names shorter than 4 characters
-                OR LENGTH(name) < 4
-                -- Names without spaces (single words)
+                LENGTH(name) < 4 
                 OR name NOT LIKE '% %'
-                -- Names with weird characters
-                OR name ~ '[^a-zA-Z0-9\s\.\-\']'
-                -- Obviously invalid patterns
-                OR name ILIKE '%undefined%'
-                OR name ILIKE '%null%'
+                OR name LIKE '%undefined%'
+                OR name LIKE '%null%'
                 OR name = ''
                 OR name IS NULL
+                OR name SIMILAR TO '[0-9]+'
+                OR name SIMILAR TO '[0-9]+\\.[0-9]+'
             RETURNING name
         `);
         
         console.log(`🗑️ Removed ${cleanupResult.rows.length} invalid golfer entries`);
         
-        // Also clean up golfers with no statistical data
-        const noStatsCleanup = await query(`
-            DELETE FROM golfers 
-            WHERE world_ranking IS NULL 
-            AND pga_tour_wins IS NULL 
-            AND major_wins IS NULL 
-            AND career_earnings IS NULL
-            AND season_earnings IS NULL
-            RETURNING name
-        `);
-        
-        console.log(`📊 Removed ${noStatsCleanup.rows.length} golfers with no stats`);
+        await query('COMMIT');
         
         // Get count of remaining valid golfers
         const validCount = await query(`
@@ -1845,11 +1893,11 @@ router.post('/cleanup-invalid-golfers', async (req, res) => {
             success: true,
             message: 'Cleanup completed successfully!',
             removed_invalid: cleanupResult.rows.length,
-            removed_no_stats: noStatsCleanup.rows.length,
             remaining_golfers: validCount.rows[0].count
         });
         
     } catch (error) {
+        await query('ROLLBACK');
         console.error('❌ Cleanup failed:', error);
         res.status(500).json({ 
             success: false,
