@@ -610,35 +610,25 @@ async function createTestTournament() {
     if (!confirmCreate) return;
     
     try {
-        // Create test tournament
-        const testTournament = {
-            name: '🧪 Test Tournament - Pro Golfers',
-            course_name: 'Professional Test Course',
-            location: 'Fantasy Land, USA',
-            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
-            end_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
-            is_active: false,
-            prize_fund: 10000000,
-            course_par: 72
-        };
-        
-        const response = await fetch('/api/admin/tournaments', {
+        // Call the correct endpoint that exists in the backend
+        const response = await fetch('/api/admin/test-tournament', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
-            },
-            body: JSON.stringify(testTournament)
+            }
         });
         
-        if (response.ok) {
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
             showAlert('✅ Test tournament created! Check the tournaments page to create a team.', 'success');
             loadTournaments();
         } else {
-            showAlert('⚠️ Could not create test tournament automatically. You can manually update an existing tournament dates to make it upcoming.', 'warning');
+            showAlert('❌ Failed to create test tournament: ' + (data.error || 'Unknown error'), 'error');
         }
     } catch (error) {
-        showAlert('ℹ️ Test tournament creation not available. Try making an existing tournament upcoming by editing its dates.', 'info');
+        showAlert('❌ Test tournament creation failed: ' + error.message, 'error');
     }
 }
 
