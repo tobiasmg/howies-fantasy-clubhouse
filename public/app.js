@@ -8,6 +8,7 @@ let userTeams = new Map(); // Cache user teams by tournament ID
 let editingTeamId = null;
 let editingSelectedGolfers = [];
 let availableGolfers = [];
+let availableGolfersForSelection = [];
 
 // API base URL
 const API_BASE = window.location.origin + '/api';
@@ -1462,9 +1463,15 @@ async function editUserTeam(teamId, username, tournamentName, permissions) {
     }
 }
 
+// FIXED: Enhanced team edit modal opener
 function openTeamEditModal(teamDetails, username, tournamentName) {
+    console.log('Opening team edit modal for team:', teamDetails);
+    
     editingTeamId = teamDetails.id;
     editingSelectedGolfers = [...teamDetails.golfers]; // Copy current golfers
+    availableGolfersForSelection = []; // Reset available golfers
+    
+    console.log('Initial selected golfers:', editingSelectedGolfers);
     
     // Create enhanced modal
     const modal = document.createElement('div');
@@ -1482,10 +1489,10 @@ function openTeamEditModal(teamDetails, username, tournamentName) {
     `;
     
     modal.innerHTML = `
-        <div style="background: white; border-radius: 15px; padding: 2rem; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
+        <div class="team-edit-modal" style="background: white; border-radius: 15px; padding: 2rem; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h3>Edit Team: ${teamDetails.team_name}</h3>
-                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <button onclick="closeTeamEditModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">&times;</button>
             </div>
             
             <div style="margin-bottom: 1rem;">
@@ -1494,97 +1501,123 @@ function openTeamEditModal(teamDetails, username, tournamentName) {
             </div>
             
             <div style="margin: 1rem 0;">
-                <label>Team Name:</label>
+                <label><strong>Team Name:</strong></label>
                 <input type="text" id="editTeamName" value="${teamDetails.team_name || ''}" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
             </div>
             
             <!-- Selected Golfers Section -->
             <div style="margin: 1.5rem 0;">
                 <h4>Selected Golfers (<span id="selectedGolferCount">${editingSelectedGolfers.length}</span>/6):</h4>
-                <div id="selectedGolfersContainer" style="min-height: 100px; border: 2px dashed #ddd; border-radius: 8px; padding: 1rem; margin: 0.5rem 0;">
+                <div id="selectedGolfersContainer" style="min-height: 100px; border: 2px dashed #ddd; border-radius: 8px; padding: 1rem; margin: 0.5rem 0; background: #f9f9f9;">
                     <!-- Selected golfers will be populated here -->
                 </div>
             </div>
             
             <!-- Golfer Search Section -->
             <div style="margin: 1.5rem 0;">
-                <h4>Add Golfers:</h4>
+                <h4>Add/Remove Golfers:</h4>
                 <div style="display: flex; gap: 1rem; margin: 0.5rem 0;">
-                    <input type="text" id="golferSearchInput" placeholder="Search golfers..." style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
+                    <input type="text" id="golferSearchInput" placeholder="Search golfers (e.g., Tiger Woods)..." style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
                     <button onclick="searchGolfersForTeamEdit()" style="padding: 0.5rem 1rem; background: #2a5298; color: white; border: none; border-radius: 5px; cursor: pointer;">Search</button>
                 </div>
-                <div id="golferSearchResults" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; margin-top: 0.5rem;">
-                    <div style="padding: 1rem; text-align: center; color: #666;">Enter search term to find golfers</div>
+                <div id="golferSearchResults" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; margin-top: 0.5rem; background: white;">
+                    <div style="padding: 1rem; text-align: center; color: #666;">Enter search term to find golfers or scroll to see available golfers</div>
                 </div>
             </div>
             
-            <div style="text-align: center; margin-top: 1.5rem;">
+            <div style="text-align: center; margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1rem;">
                 <button onclick="saveEnhancedTeamChanges()" id="saveTeamChangesBtn" style="background: #4CAF50; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer; margin-right: 0.5rem;">
                     Save Changes
                 </button>
-                <button onclick="this.closest('div[style*=fixed]').remove()" style="background: #666; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer;">
+                <button onclick="closeTeamEditModal()" style="background: #666; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer;">
                     Cancel
                 </button>
             </div>
         </div>
     `;
     
+    // Add modal to page
     document.body.appendChild(modal);
+    
+    // Add close modal function to window
+    window.closeTeamEditModal = function() {
+        modal.remove();
+        // Clean up global variables
+        editingTeamId = null;
+        editingSelectedGolfers = [];
+        availableGolfersForSelection = [];
+    };
     
     // Initialize the display
     updateSelectedGolfersDisplay();
     
-    // Load initial golfer search
+    // Load initial golfer search results
     loadInitialGolfersForEdit();
 }
 
+// FIXED: Update selected golfers display
 function updateSelectedGolfersDisplay() {
     const container = document.getElementById('selectedGolfersContainer');
     const countSpan = document.getElementById('selectedGolferCount');
     
-    if (!container || !countSpan) return;
+    if (!container || !countSpan) {
+        console.log('Container or count span not found');
+        return;
+    }
+    
+    console.log('Updating display with golfers:', editingSelectedGolfers);
     
     countSpan.textContent = editingSelectedGolfers.length;
     
     if (editingSelectedGolfers.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No golfers selected</div>';
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No golfers selected. Search and add golfers below.</div>';
         return;
     }
     
     container.innerHTML = editingSelectedGolfers.map((golfer, index) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; margin: 0.5rem 0; border-radius: 8px; border: 2px solid #4CAF50;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #e8f5e9; margin: 0.5rem 0; border-radius: 8px; border: 2px solid #4CAF50;">
             <div>
                 <strong>${golfer.name}</strong>
                 <div style="font-size: 0.9rem; color: #666;">
-                    ${golfer.country} • Rank #${golfer.world_ranking || '999'}
+                    ${golfer.country || 'Unknown'} • Rank #${golfer.world_ranking || '999'}
                     ${golfer.career_earnings ? ' • ' + formatCurrency(golfer.career_earnings) : ''}
                 </div>
             </div>
-            <button onclick="removeGolferFromEditingTeam(${index})" style="background: #f44336; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 1.2rem;">×</button>
+            <button onclick="removeGolferFromEditingTeam(${index})" style="background: #f44336; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 1.2rem; font-weight: bold;">×</button>
         </div>
     `).join('');
     
     // Update save button state
-    const saveBtn = document.getElementById('saveTeamChangesBtn');
-    if (saveBtn) {
-        if (editingSelectedGolfers.length === 6) {
-            saveBtn.disabled = false;
-            saveBtn.style.opacity = '1';
-            saveBtn.textContent = 'Save Changes';
-        } else {
-            saveBtn.disabled = false; // Allow saving with just name change
-            saveBtn.style.opacity = '0.8';
-            saveBtn.textContent = `Save Changes (${editingSelectedGolfers.length}/6 golfers)`;
+    updateSaveButtonState();
+}
+
+// FIXED: Remove golfer from editing team
+function removeGolferFromEditingTeam(index) {
+    console.log('Removing golfer at index:', index);
+    if (index >= 0 && index < editingSelectedGolfers.length) {
+        const removedGolfer = editingSelectedGolfers.splice(index, 1)[0];
+        console.log('Removed golfer:', removedGolfer);
+        updateSelectedGolfersDisplay();
+        // Refresh search results to show the removed golfer as available again
+        if (availableGolfersForSelection.length > 0) {
+            displayGolferSearchResults(availableGolfersForSelection);
         }
+        showAlert(`${removedGolfer.name} removed from team`, 'info');
     }
 }
 
-function removeGolferFromEditingTeam(index) {
-    editingSelectedGolfers.splice(index, 1);
-    updateSelectedGolfersDisplay();
-}
-
-function addGolferToEditingTeam(golfer) {
+// FIXED: Add golfer to editing team
+function addGolferToEditingTeam(golferIndex) {
+    console.log('Adding golfer at index:', golferIndex);
+    
+    if (!availableGolfersForSelection[golferIndex]) {
+        showAlert('Golfer not found', 'error');
+        return;
+    }
+    
+    const golfer = availableGolfersForSelection[golferIndex];
+    console.log('Adding golfer:', golfer);
+    
     // Check if already selected
     if (editingSelectedGolfers.some(g => g.id === golfer.id)) {
         showAlert('Golfer already selected', 'warning');
@@ -1593,47 +1626,60 @@ function addGolferToEditingTeam(golfer) {
     
     // Check limit
     if (editingSelectedGolfers.length >= 6) {
-        showAlert('Maximum 6 golfers allowed', 'error');
+        showAlert('Maximum 6 golfers allowed. Remove a golfer first.', 'error');
         return;
     }
     
     editingSelectedGolfers.push(golfer);
     updateSelectedGolfersDisplay();
+    displayGolferSearchResults(availableGolfersForSelection); // Refresh to update button states
     showAlert(`${golfer.name} added to team`, 'success');
 }
 
+/ FIXED: Load initial golfers for editing
 async function loadInitialGolfersForEdit() {
     try {
-        const response = await fetch('/api/admin/golfers/search?limit=20', {
+        console.log('Loading initial golfers for edit...');
+        const response = await fetch('/api/admin/golfers/search?limit=50', {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         
         if (response.ok) {
-            availableGolfers = await response.json();
-            displayGolferSearchResults(availableGolfers);
+            availableGolfersForSelection = await response.json();
+            console.log('Loaded golfers:', availableGolfersForSelection.length);
+            displayGolferSearchResults(availableGolfersForSelection);
+        } else {
+            console.error('Failed to load initial golfers');
+            showAlert('Failed to load golfers', 'error');
         }
     } catch (error) {
         console.error('Failed to load initial golfers:', error);
+        showAlert('Failed to load golfers', 'error');
     }
 }
 
+// FIXED: Search golfers for team editing
 async function searchGolfersForTeamEdit() {
     const searchTerm = document.getElementById('golferSearchInput')?.value?.trim();
     
-    if (!searchTerm) {
-        displayGolferSearchResults(availableGolfers.slice(0, 20));
-        return;
-    }
-    
     try {
-        const response = await fetch(`/api/admin/golfers/search?q=${encodeURIComponent(searchTerm)}&limit=50`, {
+        let url = '/api/admin/golfers/search?limit=50';
+        if (searchTerm) {
+            url += `&q=${encodeURIComponent(searchTerm)}`;
+        }
+        
+        console.log('Searching golfers with URL:', url);
+        
+        const response = await fetch(url, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         
         if (response.ok) {
-            const golfers = await response.json();
-            displayGolferSearchResults(golfers);
+            availableGolfersForSelection = await response.json();
+            console.log('Search returned:', availableGolfersForSelection.length, 'golfers');
+            displayGolferSearchResults(availableGolfersForSelection);
         } else {
+            console.error('Search failed:', response.status);
             showAlert('Failed to search golfers', 'error');
         }
     } catch (error) {
@@ -1642,16 +1688,22 @@ async function searchGolfersForTeamEdit() {
     }
 }
 
+// FIXED: Display golfer search results
 function displayGolferSearchResults(golfers) {
     const container = document.getElementById('golferSearchResults');
-    if (!container) return;
-    
-    if (golfers.length === 0) {
-        container.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">No golfers found</div>';
+    if (!container) {
+        console.log('Search results container not found');
         return;
     }
     
-    container.innerHTML = golfers.map(golfer => {
+    console.log('Displaying', golfers.length, 'golfers in search results');
+    
+    if (golfers.length === 0) {
+        container.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">No golfers found. Try a different search term.</div>';
+        return;
+    }
+    
+    container.innerHTML = golfers.map((golfer, index) => {
         const isSelected = editingSelectedGolfers.some(g => g.id === golfer.id);
         const isDisabled = editingSelectedGolfers.length >= 6 && !isSelected;
         
@@ -1660,21 +1712,50 @@ function displayGolferSearchResults(golfers) {
                 <div>
                     <strong>${golfer.name}</strong>
                     <div style="font-size: 0.9rem; color: #666;">
-                        ${golfer.country} • Rank #${golfer.world_ranking || '999'}
+                        ${golfer.country || 'Unknown'} • Rank #${golfer.world_ranking || '999'}
                         ${golfer.career_earnings ? ' • ' + formatCurrency(golfer.career_earnings) : ''}
                     </div>
                 </div>
                 <button 
-                    onclick="addGolferToEditingTeam(${JSON.stringify(golfer).replace(/"/g, '&quot;')})" 
+                    onclick="addGolferToEditingTeam(${index})" 
                     ${isSelected || isDisabled ? 'disabled' : ''}
-                    style="background: ${isSelected ? '#4CAF50' : '#2a5298'}; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: ${isSelected || isDisabled ? 'not-allowed' : 'pointer'};">
-                    ${isSelected ? 'Selected' : 'Add'}
+                    style="background: ${isSelected ? '#4CAF50' : '#2a5298'}; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: ${isSelected || isDisabled ? 'not-allowed' : 'pointer'}; opacity: ${isSelected || isDisabled ? '0.6' : '1'};">
+                    ${isSelected ? '✓ Selected' : 'Add'}
                 </button>
             </div>
         `;
     }).join('');
 }
 
+// FIXED: Update save button state
+function updateSaveButtonState() {
+    const saveBtn = document.getElementById('saveTeamChangesBtn');
+    const teamNameInput = document.getElementById('editTeamName');
+    
+    if (saveBtn && teamNameInput) {
+        const hasName = teamNameInput.value.trim().length > 0;
+        const golferCount = editingSelectedGolfers.length;
+        
+        saveBtn.disabled = false; // Always allow saving
+        
+        if (hasName && golferCount === 6) {
+            saveBtn.style.opacity = '1';
+            saveBtn.textContent = 'Save Changes';
+        } else if (hasName && golferCount > 0) {
+            saveBtn.style.opacity = '0.9';
+            saveBtn.textContent = `Save Changes (${golferCount}/6 golfers)`;
+        } else if (hasName) {
+            saveBtn.style.opacity = '0.8';
+            saveBtn.textContent = 'Save Team Name Only';
+        } else {
+            saveBtn.style.opacity = '0.6';
+            saveBtn.textContent = 'Enter Team Name';
+        }
+    }
+}
+
+
+// FIXED: Save enhanced team changes
 async function saveEnhancedTeamChanges() {
     const teamName = document.getElementById('editTeamName')?.value?.trim();
     
@@ -1704,6 +1785,8 @@ async function saveEnhancedTeamChanges() {
             payload.golfer_ids = editingSelectedGolfers.map(g => g.id);
         }
         
+        console.log('Saving team with payload:', payload);
+        
         const response = await fetch(`/api/admin/teams/${editingTeamId}`, {
             method: 'PUT',
             headers: {
@@ -1720,8 +1803,17 @@ async function saveEnhancedTeamChanges() {
                 ? 'Team name and golfers updated successfully!' 
                 : 'Team name updated successfully!';
             showAlert(message, 'success');
-            document.querySelector('div[style*="position: fixed"]')?.remove(); // Close modal
-            searchUsers(); // Refresh the display
+            
+            // Close modal
+            closeTeamEditModal();
+            
+            // Refresh the user search to show updated team
+            const searchInput = document.getElementById('userSearchInput');
+            if (searchInput && searchInput.value) {
+                searchUsers();
+            } else {
+                loadTeamManagement();
+            }
         } else {
             showAlert(result.error || 'Failed to update team', 'error');
         }
@@ -1731,11 +1823,10 @@ async function saveEnhancedTeamChanges() {
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.innerHTML = 'Save Changes';
+            updateSaveButtonState();
         }
     }
 }
-
 
 async function saveTeamChanges(teamId) {
     const teamName = document.getElementById('editTeamName').value.trim();
@@ -2461,6 +2552,24 @@ function debounce(func, wait) {
 
 // Add event listener for Enter key in search
 document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('keypress', function(e) {
+        if (e.target && e.target.id === 'golferSearchInput' && e.key === 'Enter') {
+            e.preventDefault();
+            searchGolfersForTeamEdit();
+        }
+    });
+});
+
+// Add event listener for real-time team name updates
+document.addEventListener('DOMContentLoaded', function() {
+    // Use event delegation for dynamically created elements
+    document.addEventListener('input', function(e) {
+        if (e.target && e.target.id === 'editTeamName') {
+            updateSaveButtonState();
+        }
+    });
+    
+    // Add Enter key support for golfer search
     document.addEventListener('keypress', function(e) {
         if (e.target && e.target.id === 'golferSearchInput' && e.key === 'Enter') {
             e.preventDefault();
