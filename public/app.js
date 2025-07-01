@@ -5,6 +5,9 @@ let golfers = [];
 let selectedGolfers = [];
 let currentTournament = null;
 let userTeams = new Map(); // Cache user teams by tournament ID
+let editingTeamId = null;
+let editingSelectedGolfers = [];
+let availableGolfers = [];
 
 // API base URL
 const API_BASE = window.location.origin + '/api';
@@ -1234,6 +1237,8 @@ async function loadTeamManagement() {
     }
 }
 
+// Add to public/app.js - Replace existing displayUserTeams function
+
 function displayUserTeams(users) {
     const container = document.getElementById('teamManagementContainer');
     
@@ -1263,22 +1268,67 @@ function displayUserTeams(users) {
             <div class="user-teams-list">
                 ${user.teams && user.teams.length > 0 ? user.teams.map(team => {
                     const startDate = new Date(team.start_date);
+                    const endDate = new Date(team.end_date);
                     const now = new Date();
-                    const status = startDate > now ? 'upcoming' : (team.is_active ? 'active' : 'completed');
+                    
+                    let status = 'upcoming';
+                    let statusText = 'Upcoming';
+                    let statusColor = '#1976d2';
+                    let canEdit = true;
+                    let editTooltip = '';
+                    
+                    if (now >= startDate && now <= endDate && team.is_active) {
+                        status = 'active';
+                        statusText = 'Live Tournament';
+                        statusColor = '#388e3c';
+                        editTooltip = 'Can edit (Admin privileges)';
+                    } else if (now > endDate || team.is_completed) {
+                        status = 'completed';
+                        statusText = 'Completed';
+                        statusColor = '#757575';
+                        editTooltip = 'Can edit name only';
+                    } else {
+                        editTooltip = 'Can edit golfers and name';
+                    }
+                    
+                    // Count golfers
+                    const golferCount = [
+                        team.golfer1_id, team.golfer2_id, team.golfer3_id,
+                        team.golfer4_id, team.golfer5_id, team.golfer6_id
+                    ].filter(Boolean).length;
+                    
+                    const isIncomplete = golferCount < 6;
                     
                     return `
-                        <div class="user-team-item">
+                        <div class="user-team-item" style="border-left: 4px solid ${statusColor};">
                             <div>
-                                <strong>${team.team_name || 'Unnamed Team'}</strong>
-                                <br>
-                                <small>${team.tournament_name} • ${startDate.toLocaleDateString()}</small>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                                    <strong>${team.team_name || 'Unnamed Team'}</strong>
+                                    ${isIncomplete ? '<span style="background: #ff9800; color: white; padding: 0.2rem 0.4rem; border-radius: 10px; font-size: 0.7rem;">INCOMPLETE</span>' : ''}
+                                </div>
+                                <small style="display: block; margin-bottom: 0.25rem;">
+                                    ${team.tournament_name} • ${startDate.toLocaleDateString()}
+                                </small>
+                                <small style="color: #666;">
+                                    Golfers: ${golferCount}/6 • Score: ${team.total_score || 0}
+                                </small>
                             </div>
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                <span class="status-${status}">${status}</span>
-                                <button class="btn btn-small" onclick="editUserTeam(${team.id}, '${user.username}', '${team.tournament_name.replace(/'/g, "\\'")}')">
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-shrink: 0;">
+                                <span class="status-${status}" style="color: ${statusColor}; font-weight: bold; font-size: 0.8rem;">
+                                    ${statusText}
+                                </span>
+                                <button 
+                                    class="btn btn-small" 
+                                    onclick="editUserTeam(${team.id}, '${user.username}', '${team.tournament_name.replace(/'/g, "\\'")}', '${editTooltip}')"
+                                    title="${editTooltip}"
+                                    style="position: relative;">
                                     <i class="fas fa-edit"></i> Edit
+                                    ${isIncomplete ? '<span style="position: absolute; top: -8px; right: -8px; background: #f44336; color: white; border-radius: 50%; width: 16px; height: 16px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;">!</span>' : ''}
                                 </button>
-                                <button class="btn btn-small btn-danger" onclick="deleteUserTeam(${team.id}, '${user.username}', '${team.team_name?.replace(/'/g, "\\'") || 'Unnamed Team'}')">
+                                <button 
+                                    class="btn btn-small btn-danger" 
+                                    onclick="deleteUserTeam(${team.id}, '${user.username}', '${team.team_name?.replace(/'/g, "\\'") || 'Unnamed Team'}')"
+                                    title="Delete team permanently">
                                     <i class="fas fa-trash"></i> Delete
                                 </button>
                             </div>
@@ -1288,6 +1338,60 @@ function displayUserTeams(users) {
             </div>
         </div>
     `).join('');
+}
+
+// Enhanced edit function with better error handling
+async function editUserTeam(teamId, username, tournamentName, permissions) {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    // Show loading indicator
+    showAlert('Loading team details...', 'info');
+    
+    try {
+        const response = await fetch(`/api/admin/teams/${teamId}/details`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
+        const teamDetails = await response.json();
+        
+        // Check if team has missing golfers
+        if (teamDetails.golfers.length < 6) {
+            const proceed = confirm(
+                `This team is incomplete (${teamDetails.golfers.length}/6 golfers).\n\n` +
+                `Do you want to edit it? You can add the missing golfers.`
+            );
+            if (!proceed) return;
+        }
+        
+        openTeamEditModal(teamDetails, username, tournamentName);
+        
+    } catch (error) {
+        console.error('Error loading team details:', error);
+        showAlert('Failed to load team details: ' + error.message, 'error');
+    }
+}
+
+// Add utility function for better formatting
+function formatTeamStatus(team) {
+    const startDate = new Date(team.start_date);
+    const endDate = new Date(team.end_date);
+    const now = new Date();
+    
+    if (now >= startDate && now <= endDate && team.is_active) {
+        return { status: 'active', text: 'Live Tournament', color: '#388e3c' };
+    } else if (now > endDate || team.is_completed) {
+        return { status: 'completed', text: 'Completed', color: '#757575' };
+    } else {
+        return { status: 'upcoming', text: 'Upcoming', color: '#1976d2' };
+    }
 }
 
 async function deleteUserTeam(teamId, username, teamName) {
@@ -1320,32 +1424,49 @@ async function deleteUserTeam(teamId, username, teamName) {
     }
 }
 
-async function editUserTeam(teamId, username, tournamentName) {
+async function editUserTeam(teamId, username, tournamentName, permissions) {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
         return;
     }
     
+    // Show loading indicator
+    showAlert('Loading team details...', 'info');
+    
     try {
-        const response = await fetch(`${API_BASE}/admin/teams/${teamId}/details`, {
+        const response = await fetch(`/api/admin/teams/${teamId}/details`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         });
         
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        
         const teamDetails = await response.json();
         
-        if (response.ok) {
-            openTeamEditModal(teamDetails, username, tournamentName);
-        } else {
-            showAlert(teamDetails.error || 'Failed to load team details', 'error');
+        // Check if team has missing golfers
+        if (teamDetails.golfers.length < 6) {
+            const proceed = confirm(
+                `This team is incomplete (${teamDetails.golfers.length}/6 golfers).\n\n` +
+                `Do you want to edit it? You can add the missing golfers.`
+            );
+            if (!proceed) return;
         }
+        
+        openTeamEditModal(teamDetails, username, tournamentName);
+        
     } catch (error) {
         console.error('Error loading team details:', error);
-        showAlert('Failed to load team details', 'error');
+        showAlert('Failed to load team details: ' + error.message, 'error');
     }
 }
 
 function openTeamEditModal(teamDetails, username, tournamentName) {
-    // Create a modal for editing teams
+    editingTeamId = teamDetails.id;
+    editingSelectedGolfers = [...teamDetails.golfers]; // Copy current golfers
+    
+    // Create enhanced modal
     const modal = document.createElement('div');
     modal.style.cssText = `
         position: fixed;
@@ -1361,33 +1482,44 @@ function openTeamEditModal(teamDetails, username, tournamentName) {
     `;
     
     modal.innerHTML = `
-        <div style="background: white; border-radius: 15px; padding: 2rem; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+        <div style="background: white; border-radius: 15px; padding: 2rem; max-width: 900px; width: 95%; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h3>Edit Team: ${teamDetails.team_name}</h3>
                 <button onclick="this.closest('div[style*=fixed]').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
             </div>
             
-            <p><strong>User:</strong> ${username}</p>
-            <p><strong>Tournament:</strong> ${tournamentName}</p>
+            <div style="margin-bottom: 1rem;">
+                <p><strong>User:</strong> ${username}</p>
+                <p><strong>Tournament:</strong> ${tournamentName}</p>
+            </div>
             
             <div style="margin: 1rem 0;">
                 <label>Team Name:</label>
                 <input type="text" id="editTeamName" value="${teamDetails.team_name || ''}" style="width: 100%; padding: 0.5rem; margin-top: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
             </div>
             
-            <div style="margin: 1rem 0;">
-                <h4>Current Golfers:</h4>
-                <div id="currentGolfers">
-                    ${teamDetails.golfers.map((golfer, index) => `
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; background: #f8f9fa; margin: 0.25rem 0; border-radius: 5px;">
-                            <span>${golfer.name} (${golfer.country}) - Rank #${golfer.world_ranking}</span>
-                        </div>
-                    `).join('')}
+            <!-- Selected Golfers Section -->
+            <div style="margin: 1.5rem 0;">
+                <h4>Selected Golfers (<span id="selectedGolferCount">${editingSelectedGolfers.length}</span>/6):</h4>
+                <div id="selectedGolfersContainer" style="min-height: 100px; border: 2px dashed #ddd; border-radius: 8px; padding: 1rem; margin: 0.5rem 0;">
+                    <!-- Selected golfers will be populated here -->
+                </div>
+            </div>
+            
+            <!-- Golfer Search Section -->
+            <div style="margin: 1.5rem 0;">
+                <h4>Add Golfers:</h4>
+                <div style="display: flex; gap: 1rem; margin: 0.5rem 0;">
+                    <input type="text" id="golferSearchInput" placeholder="Search golfers..." style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 5px;">
+                    <button onclick="searchGolfersForTeamEdit()" style="padding: 0.5rem 1rem; background: #2a5298; color: white; border: none; border-radius: 5px; cursor: pointer;">Search</button>
+                </div>
+                <div id="golferSearchResults" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; margin-top: 0.5rem;">
+                    <div style="padding: 1rem; text-align: center; color: #666;">Enter search term to find golfers</div>
                 </div>
             </div>
             
             <div style="text-align: center; margin-top: 1.5rem;">
-                <button onclick="saveTeamChanges(${teamDetails.id})" style="background: #4CAF50; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer; margin-right: 0.5rem;">
+                <button onclick="saveEnhancedTeamChanges()" id="saveTeamChangesBtn" style="background: #4CAF50; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer; margin-right: 0.5rem;">
                     Save Changes
                 </button>
                 <button onclick="this.closest('div[style*=fixed]').remove()" style="background: #666; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 25px; cursor: pointer;">
@@ -1398,7 +1530,212 @@ function openTeamEditModal(teamDetails, username, tournamentName) {
     `;
     
     document.body.appendChild(modal);
+    
+    // Initialize the display
+    updateSelectedGolfersDisplay();
+    
+    // Load initial golfer search
+    loadInitialGolfersForEdit();
 }
+
+function updateSelectedGolfersDisplay() {
+    const container = document.getElementById('selectedGolfersContainer');
+    const countSpan = document.getElementById('selectedGolferCount');
+    
+    if (!container || !countSpan) return;
+    
+    countSpan.textContent = editingSelectedGolfers.length;
+    
+    if (editingSelectedGolfers.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No golfers selected</div>';
+        return;
+    }
+    
+    container.innerHTML = editingSelectedGolfers.map((golfer, index) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; background: #f8f9fa; margin: 0.5rem 0; border-radius: 8px; border: 2px solid #4CAF50;">
+            <div>
+                <strong>${golfer.name}</strong>
+                <div style="font-size: 0.9rem; color: #666;">
+                    ${golfer.country} • Rank #${golfer.world_ranking || '999'}
+                    ${golfer.career_earnings ? ' • ' + formatCurrency(golfer.career_earnings) : ''}
+                </div>
+            </div>
+            <button onclick="removeGolferFromEditingTeam(${index})" style="background: #f44336; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 1.2rem;">×</button>
+        </div>
+    `).join('');
+    
+    // Update save button state
+    const saveBtn = document.getElementById('saveTeamChangesBtn');
+    if (saveBtn) {
+        if (editingSelectedGolfers.length === 6) {
+            saveBtn.disabled = false;
+            saveBtn.style.opacity = '1';
+            saveBtn.textContent = 'Save Changes';
+        } else {
+            saveBtn.disabled = false; // Allow saving with just name change
+            saveBtn.style.opacity = '0.8';
+            saveBtn.textContent = `Save Changes (${editingSelectedGolfers.length}/6 golfers)`;
+        }
+    }
+}
+
+function removeGolferFromEditingTeam(index) {
+    editingSelectedGolfers.splice(index, 1);
+    updateSelectedGolfersDisplay();
+}
+
+function addGolferToEditingTeam(golfer) {
+    // Check if already selected
+    if (editingSelectedGolfers.some(g => g.id === golfer.id)) {
+        showAlert('Golfer already selected', 'warning');
+        return;
+    }
+    
+    // Check limit
+    if (editingSelectedGolfers.length >= 6) {
+        showAlert('Maximum 6 golfers allowed', 'error');
+        return;
+    }
+    
+    editingSelectedGolfers.push(golfer);
+    updateSelectedGolfersDisplay();
+    showAlert(`${golfer.name} added to team`, 'success');
+}
+
+async function loadInitialGolfersForEdit() {
+    try {
+        const response = await fetch('/api/admin/golfers/search?limit=20', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (response.ok) {
+            availableGolfers = await response.json();
+            displayGolferSearchResults(availableGolfers);
+        }
+    } catch (error) {
+        console.error('Failed to load initial golfers:', error);
+    }
+}
+
+async function searchGolfersForTeamEdit() {
+    const searchTerm = document.getElementById('golferSearchInput')?.value?.trim();
+    
+    if (!searchTerm) {
+        displayGolferSearchResults(availableGolfers.slice(0, 20));
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/golfers/search?q=${encodeURIComponent(searchTerm)}&limit=50`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        if (response.ok) {
+            const golfers = await response.json();
+            displayGolferSearchResults(golfers);
+        } else {
+            showAlert('Failed to search golfers', 'error');
+        }
+    } catch (error) {
+        console.error('Golfer search failed:', error);
+        showAlert('Failed to search golfers', 'error');
+    }
+}
+
+function displayGolferSearchResults(golfers) {
+    const container = document.getElementById('golferSearchResults');
+    if (!container) return;
+    
+    if (golfers.length === 0) {
+        container.innerHTML = '<div style="padding: 1rem; text-align: center; color: #666;">No golfers found</div>';
+        return;
+    }
+    
+    container.innerHTML = golfers.map(golfer => {
+        const isSelected = editingSelectedGolfers.some(g => g.id === golfer.id);
+        const isDisabled = editingSelectedGolfers.length >= 6 && !isSelected;
+        
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border-bottom: 1px solid #eee; ${isSelected ? 'background: #e8f5e9;' : ''} ${isDisabled ? 'opacity: 0.5;' : ''}">
+                <div>
+                    <strong>${golfer.name}</strong>
+                    <div style="font-size: 0.9rem; color: #666;">
+                        ${golfer.country} • Rank #${golfer.world_ranking || '999'}
+                        ${golfer.career_earnings ? ' • ' + formatCurrency(golfer.career_earnings) : ''}
+                    </div>
+                </div>
+                <button 
+                    onclick="addGolferToEditingTeam(${JSON.stringify(golfer).replace(/"/g, '&quot;')})" 
+                    ${isSelected || isDisabled ? 'disabled' : ''}
+                    style="background: ${isSelected ? '#4CAF50' : '#2a5298'}; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: ${isSelected || isDisabled ? 'not-allowed' : 'pointer'};">
+                    ${isSelected ? 'Selected' : 'Add'}
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+async function saveEnhancedTeamChanges() {
+    const teamName = document.getElementById('editTeamName')?.value?.trim();
+    
+    if (!teamName) {
+        showAlert('Team name is required', 'error');
+        return;
+    }
+    
+    if (!editingTeamId) {
+        showAlert('Team ID missing', 'error');
+        return;
+    }
+    
+    const saveBtn = document.getElementById('saveTeamChangesBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span style="display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 0.5rem;"></span>Saving...';
+    }
+    
+    try {
+        const payload = {
+            team_name: teamName
+        };
+        
+        // Only include golfer IDs if we have exactly 6 golfers
+        if (editingSelectedGolfers.length === 6) {
+            payload.golfer_ids = editingSelectedGolfers.map(g => g.id);
+        }
+        
+        const response = await fetch(`/api/admin/teams/${editingTeamId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            const message = result.golfersUpdated 
+                ? 'Team name and golfers updated successfully!' 
+                : 'Team name updated successfully!';
+            showAlert(message, 'success');
+            document.querySelector('div[style*="position: fixed"]')?.remove(); // Close modal
+            searchUsers(); // Refresh the display
+        } else {
+            showAlert(result.error || 'Failed to update team', 'error');
+        }
+    } catch (error) {
+        console.error('Error updating team:', error);
+        showAlert('Failed to update team', 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Save Changes';
+        }
+    }
+}
+
 
 async function saveTeamChanges(teamId) {
     const teamName = document.getElementById('editTeamName').value.trim();
@@ -2121,5 +2458,25 @@ function debounce(func, wait) {
         timeout = setTimeout(later, wait);
     };
 }
+
+// Add event listener for Enter key in search
+document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('keypress', function(e) {
+        if (e.target && e.target.id === 'golferSearchInput' && e.key === 'Enter') {
+            e.preventDefault();
+            searchGolfersForTeamEdit();
+        }
+    });
+});
+
+// Add CSS for loading animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
 
 
