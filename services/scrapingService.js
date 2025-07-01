@@ -9,19 +9,26 @@ class ScrapingService {
         this.setupCronJobs();
     }
 
-    setupCronJobs() {
-        // Update golfer rankings daily at 6 AM
-        cron.schedule('0 6 * * *', () => {
-            console.log('🕒 Daily golfer rankings update...');
-            this.updateGolferRankings();
-        });
+  setupCronJobs() {
+    // Update golfer rankings daily at 6 AM
+    cron.schedule('0 6 * * *', () => {
+        console.log('🕒 Daily golfer rankings update...');
+        this.updateGolferRankings();
+    });
 
-        // Update live scores every 15 minutes during active tournaments
-        cron.schedule('*/15 * * * *', () => {
-            this.updateLiveScores();
-        });
+    // Auto-manage tournaments every hour
+    cron.schedule('0 * * * *', () => {
+        console.log('🏆 Hourly tournament management...');
+        this.autoManageTournaments();
+    });
 
-        console.log('📅 Scraping cron jobs scheduled');
+    // Update live scores every 15 minutes during active tournaments
+    cron.schedule('*/15 * * * *', () => {
+        this.updateLiveScores();
+    });
+
+    console.log('📅 Enhanced scraping cron jobs scheduled');
+}
     }
 
     async getBrowser() {
@@ -320,6 +327,182 @@ class ScrapingService {
             this.browser = null;
         }
     }
-}
+
+async cleanup() {
+        if (this.browser) {
+            await this.browser.close();
+            this.browser = null;
+        }
+    }
+
+    // 👇 ADD ALL THE NEW METHODS HERE, BEFORE THE CLOSING BRACE
+
+    async autoManageTournaments() {
+        console.log('🔄 Running automatic tournament management...');
+        
+        try {
+            // Step 1: Auto-activate tournaments that should be active
+            await this.autoActivateTournaments();
+            
+            // Step 2: Detect and create missing tournaments
+            await this.detectAndCreateTournaments();
+            
+            // Step 3: Deactivate completed tournaments
+            await this.autoDeactivateTournaments();
+            
+        } catch (error) {
+            console.error('❌ Auto tournament management failed:', error);
+        }
+    }
+
+    async autoActivateTournaments() {
+        try {
+            const { query } = require('../config/database');
+            
+            // Activate tournaments that should be active but aren't
+            const result = await query(`
+                UPDATE tournaments 
+                SET is_active = true, updated_at = CURRENT_TIMESTAMP
+                WHERE is_active = false 
+                AND start_date <= CURRENT_TIMESTAMP 
+                AND end_date >= CURRENT_TIMESTAMP
+                AND is_completed = false
+                RETURNING name
+            `);
+            
+            if (result.rows.length > 0) {
+                console.log(`🟢 Auto-activated ${result.rows.length} tournaments:`);
+                result.rows.forEach(t => console.log(`   • ${t.name}`));
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to auto-activate tournaments:', error);
+        }
+    }
+
+    async autoDeactivateTournaments() {
+        try {
+            const { query } = require('../config/database');
+            
+            // Deactivate and mark as completed tournaments that are finished
+            const result = await query(`
+                UPDATE tournaments 
+                SET is_active = false, is_completed = true, updated_at = CURRENT_TIMESTAMP
+                WHERE is_active = true 
+                AND end_date < CURRENT_TIMESTAMP
+                RETURNING name
+            `);
+            
+            if (result.rows.length > 0) {
+                console.log(`🔴 Auto-completed ${result.rows.length} tournaments:`);
+                result.rows.forEach(t => console.log(`   • ${t.name}`));
+            }
+            
+        } catch (error) {
+            console.error('❌ Failed to auto-deactivate tournaments:', error);
+        }
+    }
+
+    async detectAndCreateTournaments() {
+        let browser;
+        try {
+            console.log('🔍 Detecting current tournaments from ESPN...');
+            
+            browser = await this.getBrowser();
+            const page = await browser.newPage();
+            
+            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+            await page.goto('https://www.espn.com/golf/schedule', { 
+                waitUntil: 'networkidle2',
+                timeout: 30000 
+            });
+
+            // Check if we can find tournament information
+            const tournaments = await page.evaluate(() => {
+                const tournamentElements = document.querySelectorAll('.Table__TR, .event-card, .schedule-item');
+                const foundTournaments = [];
+                
+                for (const element of tournamentElements) {
+                    const nameElement = element.querySelector('.event-name, .tournament-name, a[href*="tournament"]');
+                    const dateElement = element.querySelector('.date, .event-date, .schedule-date');
+                    
+                    if (nameElement && dateElement) {
+                        const name = nameElement.textContent?.trim();
+                        const dateText = dateElement.textContent?.trim();
+                        
+                        if (name && dateText && name.length > 3) {
+                            foundTournaments.push({
+                                name: name,
+                                dateText: dateText,
+                                detected: true
+                            });
+                        }
+                    }
+                }
+                
+                return foundTournaments;
+            });
+
+            console.log(`🔍 Detected ${tournaments.length} tournaments from ESPN`);
+
+            // Create missing tournaments
+            for (const tournament of tournaments) {
+                await this.createTournamentIfMissing(tournament);
+            }
+
+            await page.close();
+            
+        } catch (error) {
+            console.error('❌ Tournament detection failed:', error);
+        }
+    }
+
+    async createTournamentIfMissing(tournamentData) {
+        try {
+            const { query } = require('../config/database');
+            
+            // Check if tournament already exists
+            const existing = await query(`
+                SELECT id FROM tournaments 
+                WHERE LOWER(name) LIKE LOWER($1) 
+                OR LOWER($1) LIKE LOWER('%' || name || '%')
+                LIMIT 1
+            `, [tournamentData.name]);
+
+            if (existing.rows.length === 0) {
+                // Try to parse dates or use reasonable defaults
+                const now = new Date();
+                const startDate = new Date(); // Default to now
+                const endDate = new Date(now.getTime() + (4 * 24 * 60 * 60 * 1000)); // +4 days
+
+                const result = await query(`
+                    INSERT INTO tournaments (
+                        name, course_name, location, start_date, end_date, 
+                        is_active, prize_fund, course_par
+                    ) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    RETURNING id, name
+                `, [
+                    tournamentData.name,
+                    'TBD', // Course name to be updated later
+                    'TBD', // Location to be updated later  
+                    startDate,
+                    endDate,
+                    true, // Start as active since it was detected as current
+                    0, // Prize fund to be updated later
+                    72 // Default par
+                ]);
+
+                console.log(`🆕 Auto-created tournament: ${result.rows[0].name}`);
+                return result.rows[0].id;
+            }
+            
+        } catch (error) {
+            console.error(`❌ Failed to create tournament ${tournamentData.name}:`, error.message);
+        }
+    }
+
+} 
 
 module.exports = new ScrapingService();
+
