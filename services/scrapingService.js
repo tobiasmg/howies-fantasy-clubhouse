@@ -547,158 +547,218 @@ class EnhancedScrapingService {
         return totalGolfers;
     }
 
-    async scrapeESPNFullRankings() {
-        let browser, page;
-        try {
-            console.log('📊 Scraping ESPN Full World Rankings (200+ golfers)...');
-            
-            browser = await this.getBrowser();
-            page = await browser.newPage();
-            
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-            await page.setViewport({ width: 1366, height: 768 });
+   async scrapeESPNFullRankings() {
+    let browser, page;
+    try {
+        console.log('📊 Scraping ESPN Full World Rankings (200+ golfers)...');
+        
+        browser = await this.getBrowser();
+        page = await browser.newPage();
+        
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+        await page.setViewport({ width: 1366, height: 768 });
 
-            // Navigate to ESPN's full rankings page (shows 200+ golfers)
-            await page.goto('https://www.espn.com/golf/rankings', { 
-                waitUntil: 'networkidle0',
-                timeout: 30000 
+        // Navigate to ESPN's full rankings page
+        await page.goto('https://www.espn.com/golf/rankings', { 
+            waitUntil: 'networkidle0',
+            timeout: 30000 
+        });
+
+        // Wait for table to load
+        await page.waitForSelector('table, .Table', { timeout: 15000 });
+
+        // Scroll down to load more golfers
+        await page.evaluate(() => {
+            return new Promise((resolve) => {
+                let totalHeight = 0;
+                const distance = 100;
+                const timer = setInterval(() => {
+                    const scrollHeight = document.body.scrollHeight;
+                    window.scrollBy(0, distance);
+                    totalHeight += distance;
+
+                    if(totalHeight >= scrollHeight){
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, 100);
             });
+        });
 
-            // Wait for table to load
-            await page.waitForSelector('table, .Table', { timeout: 15000 });
-
-            // Scroll down to load more golfers (ESPN may lazy-load)
-            await page.evaluate(() => {
-                return new Promise((resolve) => {
-                    let totalHeight = 0;
-                    const distance = 100;
-                    const timer = setInterval(() => {
-                        const scrollHeight = document.body.scrollHeight;
-                        window.scrollBy(0, distance);
-                        totalHeight += distance;
-
-                        if(totalHeight >= scrollHeight){
-                            clearInterval(timer);
-                            resolve();
-                        }
-                    }, 100);
-                });
-            });
-
-            // Extract ALL golfers from the page
-            const golfers = await page.evaluate(() => {
-                const golferData = [];
+        // Extract golfers with improved validation
+        const golfers = await page.evaluate(() => {
+            const golferData = [];
+            
+            // Helper function to validate golfer names
+            function isValidGolferName(name) {
+                if (!name || typeof name !== 'string') return false;
                 
-                // Multiple selectors for ESPN's table
-                const rows = document.querySelectorAll('table tbody tr, .Table__TR, .player-row');
+                // Must be at least 4 characters and contain a space
+                if (name.length < 4 || !name.includes(' ')) return false;
                 
-                console.log(`Found ${rows.length} ranking rows`);
+                // Must not be just numbers
+                if (/^\d+\.?\d*$/.test(name)) return false;
                 
-                for (let i = 0; i < Math.min(rows.length, 250); i++) {
-                    const row = rows[i];
-                    const cells = row.querySelectorAll('td, .Table__TD');
+                // Must not contain weird characters
+                if (/[^a-zA-Z0-9\s\.\-\'\u00C0-\u017F]/.test(name)) return false;
+                
+                // Must have at least 2 words
+                const words = name.trim().split(/\s+/);
+                if (words.length < 2) return false;
+                
+                // Each word must be at least 2 characters
+                if (words.some(word => word.length < 2)) return false;
+                
+                // Common invalid patterns
+                const invalidPatterns = [
+                    /^(pos|position|rank|ranking|pts|points|earnings?)$/i,
+                    /^(country|nat|nationality)$/i,
+                    /^(score|total|round)$/i,
+                    /undefined|null|nan/i
+                ];
+                
+                if (invalidPatterns.some(pattern => pattern.test(name))) return false;
+                
+                return true;
+            }
+            
+            // Multiple selectors for ESPN's table
+            const rows = document.querySelectorAll('table tbody tr, .Table__TR, .player-row');
+            console.log(`Found ${rows.length} ranking rows`);
+            
+            for (let i = 0; i < Math.min(rows.length, 250); i++) {
+                const row = rows[i];
+                const cells = row.querySelectorAll('td, .Table__TD');
+                
+                if (cells.length >= 3) {
+                    // Extract rank (first cell)
+                    const rankText = cells[0]?.textContent?.trim();
+                    const rank = parseInt(rankText) || (i + 1);
                     
-                    if (cells.length >= 3) {
-                        // Extract rank
-                        const rankText = cells[0]?.textContent?.trim();
-                        const rank = parseInt(rankText) || (i + 1);
-                        
-                        // Extract name - try multiple methods
-                        let name = '';
-                        const nameLink = cells[1]?.querySelector('a');
-                        if (nameLink) {
-                            name = nameLink.textContent?.trim();
-                        } else {
-                            // Try different cell positions for name
-                            for (let j = 1; j < 4; j++) {
-                                const cellText = cells[j]?.textContent?.trim();
-                                if (cellText && cellText.length > 2 && cellText.length < 50 && !cellText.match(/^\d+\.?\d*$/)) {
-                                    name = cellText;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        // Extract points/earnings
-                        let points = 0;
-                        let earnings = 0;
-                        
-                        for (let j = 2; j < cells.length; j++) {
+                    // Extract name with improved logic
+                    let name = '';
+                    
+                    // First, try to find a link (most reliable)
+                    const nameLink = cells[1]?.querySelector('a');
+                    if (nameLink && nameLink.textContent?.trim()) {
+                        name = nameLink.textContent.trim();
+                    }
+                    
+                    // If no link found, try other cells but be more selective
+                    if (!name) {
+                        for (let j = 1; j < Math.min(cells.length, 4); j++) {
                             const cellText = cells[j]?.textContent?.trim();
-                            
-                            // Look for decimal points (OWGR points)
-                            if (/^\d+\.\d+$/.test(cellText)) {
-                                points = parseFloat(cellText);
+                            if (cellText && isValidGolferName(cellText)) {
+                                name = cellText;
+                                break;
                             }
-                            
-                            // Look for earnings (has $ or commas)
-                            if (cellText && (cellText.includes('$') || cellText.includes(','))) {
-                                earnings = parseInt(cellText.replace(/[$,]/g, '')) || 0;
-                            }
-                        }
-                        
-                        // Extract country from various possible locations
-                        let country = 'USA'; // Default
-                        const countryElement = row.querySelector('.country, .flag, [data-country]');
-                        if (countryElement) {
-                            const countryText = countryElement.textContent?.trim() || countryElement.getAttribute('data-country');
-                            if (countryText && countryText.length <= 5) {
-                                country = countryText;
-                            }
-                        }
-                        
-                        // Only include if we have a real name
-                        if (name && name.length > 2 && name.includes(' ') && !name.includes('undefined')) {
-                            golferData.push({
-                                rank: rank,
-                                name: name,
-                                country: country,
-                                points: points,
-                                earnings: earnings,
-                                source: 'espn_full_rankings'
-                            });
                         }
                     }
-                }
-                
-                return golferData;
-            });
-
-            console.log(`📊 Scraped ${golfers.length} real golfers from ESPN Full Rankings`);
-
-            // Save to database
-            let updatedCount = 0;
-            for (const golfer of golfers) {
-                try {
-                    await query(`
-                        INSERT INTO golfers (name, country, world_ranking, owgr_points, season_earnings, is_active, data_source, last_scraped) 
-                        VALUES ($1, $2, $3, $4, $5, true, 'espn_full_rankings', CURRENT_TIMESTAMP)
-                        ON CONFLICT (name) DO UPDATE SET
-                            world_ranking = LEAST(EXCLUDED.world_ranking, golfers.world_ranking),
-                            owgr_points = GREATEST(EXCLUDED.owgr_points, golfers.owgr_points),
-                            season_earnings = GREATEST(EXCLUDED.season_earnings, golfers.season_earnings),
-                            country = CASE WHEN golfers.country = 'Unknown' THEN EXCLUDED.country ELSE golfers.country END,
-                            data_source = 'espn_full_rankings',
-                            last_scraped = CURRENT_TIMESTAMP,
-                            updated_at = CURRENT_TIMESTAMP
-                    `, [golfer.name, golfer.country, golfer.rank, golfer.points, golfer.earnings]);
-                    updatedCount++;
-                } catch (dbError) {
-                    console.error(`❌ Database error for ${golfer.name}:`, dbError.message);
+                    
+                    // Validate the name before proceeding
+                    if (!isValidGolferName(name)) {
+                        continue; // Skip this row
+                    }
+                    
+                    // Clean up the name
+                    name = name.replace(/\s+/g, ' ').trim();
+                    
+                    // Extract points and earnings
+                    let points = 0;
+                    let earnings = 0;
+                    
+                    for (let j = 2; j < cells.length; j++) {
+                        const cellText = cells[j]?.textContent?.trim();
+                        
+                        // Look for OWGR points (decimal numbers)
+                        if (/^\d+\.\d{2,}$/.test(cellText)) {
+                            points = parseFloat(cellText);
+                        }
+                        
+                        // Look for earnings (with $ or commas)
+                        if (cellText && (cellText.includes('$') || /^\d{1,3}(,\d{3})*$/.test(cellText))) {
+                            earnings = parseInt(cellText.replace(/[$,]/g, '')) || 0;
+                        }
+                    }
+                    
+                    // Extract country
+                    let country = 'USA'; // Default
+                    const countryElement = row.querySelector('.country, .flag, [data-country]');
+                    if (countryElement) {
+                        const countryText = countryElement.textContent?.trim() || countryElement.getAttribute('data-country');
+                        if (countryText && countryText.length <= 5) {
+                            country = countryText.toUpperCase();
+                        }
+                    }
+                    
+                    // Final validation before adding
+                    if (isValidGolferName(name) && rank > 0 && rank <= 500) {
+                        golferData.push({
+                            rank: rank,
+                            name: name,
+                            country: country,
+                            points: points,
+                            earnings: earnings,
+                            source: 'espn_full_rankings'
+                        });
+                    }
                 }
             }
+            
+            // Remove duplicates by name
+            const uniqueGolfers = [];
+            const seenNames = new Set();
+            
+            for (const golfer of golferData) {
+                if (!seenNames.has(golfer.name.toLowerCase())) {
+                    seenNames.add(golfer.name.toLowerCase());
+                    uniqueGolfers.push(golfer);
+                }
+            }
+            
+            return uniqueGolfers;
+        });
 
-            await page.close();
-            console.log(`✅ ESPN Full Rankings: ${updatedCount} real golfers saved`);
-            return updatedCount;
+        console.log(`📊 Scraped ${golfers.length} VALID golfers from ESPN Full Rankings`);
 
-        } catch (error) {
-            console.error('❌ ESPN Full Rankings scraping failed:', error.message);
-            if (page) await page.close();
-            return 0;
+        // Save to database with additional validation
+        let updatedCount = 0;
+        for (const golfer of golfers) {
+            try {
+                // Final server-side validation
+                if (!golfer.name || golfer.name.length < 4 || !golfer.name.includes(' ')) {
+                    console.log(`⚠️ Skipping invalid golfer: "${golfer.name}"`);
+                    continue;
+                }
+                
+                await query(`
+                    INSERT INTO golfers (name, country, world_ranking, owgr_points, season_earnings, is_active, data_source, last_scraped) 
+                    VALUES ($1, $2, $3, $4, $5, true, 'espn_full_rankings', CURRENT_TIMESTAMP)
+                    ON CONFLICT (name) DO UPDATE SET
+                        world_ranking = LEAST(EXCLUDED.world_ranking, golfers.world_ranking),
+                        owgr_points = GREATEST(EXCLUDED.owgr_points, golfers.owgr_points),
+                        season_earnings = GREATEST(EXCLUDED.season_earnings, golfers.season_earnings),
+                        country = CASE WHEN golfers.country = 'Unknown' THEN EXCLUDED.country ELSE golfers.country END,
+                        data_source = 'espn_full_rankings',
+                        last_scraped = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                `, [golfer.name, golfer.country, golfer.rank, golfer.points, golfer.earnings]);
+                updatedCount++;
+            } catch (dbError) {
+                console.error(`❌ Database error for ${golfer.name}:`, dbError.message);
+            }
         }
-    }
 
+        await page.close();
+        console.log(`✅ ESPN Full Rankings: ${updatedCount} VALID golfers saved`);
+        return updatedCount;
+
+    } catch (error) {
+        console.error('❌ ESPN Full Rankings scraping failed:', error.message);
+        if (page) await page.close();
+        return 0;
+    }
+}
     async scrapePGATourPlayerDatabase() {
         let browser, page;
         try {
