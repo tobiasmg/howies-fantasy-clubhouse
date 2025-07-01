@@ -1049,4 +1049,274 @@ router.post('/load-complete-database', async (req, res) => {
     }
 });
 
+// ===== ENHANCED ADMIN ROUTES =====
+// Add these routes at the end of your routes/admin.js file (before module.exports = router;)
+
+// Tournament Management Routes
+router.get('/tournaments/manage', async (req, res) => {
+    try {
+        const tournaments = await query(`
+            SELECT 
+                t.*,
+                COUNT(teams.id) as team_count
+            FROM tournaments t
+            LEFT JOIN teams ON t.id = teams.tournament_id
+            GROUP BY t.id
+            ORDER BY t.start_date DESC
+        `);
+        
+        res.json(tournaments.rows);
+    } catch (error) {
+        console.error('Error loading tournaments for management:', error);
+        res.status(500).json({ error: 'Failed to load tournaments' });
+    }
+});
+
+router.delete('/tournaments/:id', async (req, res) => {
+    try {
+        const tournamentId = req.params.id;
+        
+        // Check if tournament exists
+        const tournamentCheck = await query('SELECT name FROM tournaments WHERE id = $1', [tournamentId]);
+        if (tournamentCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Tournament not found' });
+        }
+        
+        const tournamentName = tournamentCheck.rows[0].name;
+        
+        // Delete tournament (CASCADE will handle related records)
+        await query('DELETE FROM tournaments WHERE id = $1', [tournamentId]);
+        
+        console.log(`🗑️ Tournament "${tournamentName}" deleted by admin ${req.user.email}`);
+        
+        res.json({ 
+            message: `Tournament "${tournamentName}" deleted successfully`,
+            tournamentName: tournamentName
+        });
+        
+    } catch (error) {
+        console.error('Error deleting tournament:', error);
+        res.status(500).json({ error: 'Failed to delete tournament' });
+    }
+});
+
+// User and Team Management Routes
+router.get('/users/search', async (req, res) => {
+    try {
+        const searchTerm = req.query.q;
+        if (!searchTerm) {
+            return res.status(400).json({ error: 'Search term required' });
+        }
+        
+        const users = await query(`
+            SELECT 
+                u.id,
+                u.email,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.created_at
+            FROM users u
+            WHERE LOWER(u.username) LIKE LOWER($1) 
+               OR LOWER(u.email) LIKE LOWER($1)
+               OR LOWER(u.first_name) LIKE LOWER($1)
+               OR LOWER(u.last_name) LIKE LOWER($1)
+            ORDER BY u.username
+            LIMIT 20
+        `, [`%${searchTerm}%`]);
+        
+        // Get teams for each user
+        for (let user of users.rows) {
+            const teams = await query(`
+                SELECT 
+                    t.id,
+                    t.team_name,
+                    t.total_score,
+                    t.created_at,
+                    tour.id as tournament_id,
+                    tour.name as tournament_name,
+                    tour.start_date,
+                    tour.end_date,
+                    tour.is_active
+                FROM teams t
+                JOIN tournaments tour ON t.tournament_id = tour.id
+                WHERE t.user_id = $1
+                ORDER BY tour.start_date DESC
+            `, [user.id]);
+            
+            user.teams = teams.rows;
+        }
+        
+        res.json(users.rows);
+    } catch (error) {
+        console.error('Error searching users:', error);
+        res.status(500).json({ error: 'Failed to search users' });
+    }
+});
+
+router.get('/users/with-teams', async (req, res) => {
+    try {
+        const users = await query(`
+            SELECT DISTINCT
+                u.id,
+                u.email,
+                u.username,
+                u.first_name,
+                u.last_name,
+                u.created_at
+            FROM users u
+            INNER JOIN teams t ON u.id = t.user_id
+            WHERE u.is_admin = false
+            ORDER BY u.username
+        `);
+        
+        // Get teams for each user
+        for (let user of users.rows) {
+            const teams = await query(`
+                SELECT 
+                    t.id,
+                    t.team_name,
+                    t.total_score,
+                    t.created_at,
+                    tour.id as tournament_id,
+                    tour.name as tournament_name,
+                    tour.start_date,
+                    tour.end_date,
+                    tour.is_active
+                FROM teams t
+                JOIN tournaments tour ON t.tournament_id = tour.id
+                WHERE t.user_id = $1
+                ORDER BY tour.start_date DESC
+            `, [user.id]);
+            
+            user.teams = teams.rows;
+        }
+        
+        res.json(users.rows);
+    } catch (error) {
+        console.error('Error loading users with teams:', error);
+        res.status(500).json({ error: 'Failed to load users with teams' });
+    }
+});
+
+// Team Management Routes
+router.delete('/teams/:id', async (req, res) => {
+    try {
+        const teamId = req.params.id;
+        
+        // Get team info before deletion for logging
+        const teamInfo = await query(`
+            SELECT t.team_name, u.username, tour.name as tournament_name
+            FROM teams t
+            JOIN users u ON t.user_id = u.id
+            JOIN tournaments tour ON t.tournament_id = tour.id
+            WHERE t.id = $1
+        `, [teamId]);
+        
+        if (teamInfo.rows.length === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+        
+        const team = teamInfo.rows[0];
+        
+        // Delete the team
+        await query('DELETE FROM teams WHERE id = $1', [teamId]);
+        
+        console.log(`🗑️ Team "${team.team_name}" for user ${team.username} deleted by admin ${req.user.email}`);
+        
+        res.json({ 
+            message: `Team "${team.team_name}" deleted successfully`,
+            teamName: team.team_name,
+            username: team.username
+        });
+        
+    } catch (error) {
+        console.error('Error deleting team:', error);
+        res.status(500).json({ error: 'Failed to delete team' });
+    }
+});
+
+router.get('/teams/:id/details', async (req, res) => {
+    try {
+        const teamId = req.params.id;
+        
+        const teamResult = await query(`
+            SELECT 
+                t.*,
+                u.username,
+                u.email,
+                tour.name as tournament_name,
+                tour.start_date,
+                tour.end_date
+            FROM teams t
+            JOIN users u ON t.user_id = u.id
+            JOIN tournaments tour ON t.tournament_id = tour.id
+            WHERE t.id = $1
+        `, [teamId]);
+        
+        if (teamResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+        
+        const team = teamResult.rows[0];
+        
+        // Get golfer details
+        const golferIds = [
+            team.golfer1_id, team.golfer2_id, team.golfer3_id,
+            team.golfer4_id, team.golfer5_id, team.golfer6_id
+        ].filter(Boolean);
+        
+        const golfers = [];
+        for (const golferId of golferIds) {
+            const golferResult = await query('SELECT * FROM golfers WHERE id = $1', [golferId]);
+            if (golferResult.rows.length > 0) {
+                golfers.push(golferResult.rows[0]);
+            }
+        }
+        
+        res.json({
+            ...team,
+            golfers: golfers
+        });
+        
+    } catch (error) {
+        console.error('Error loading team details:', error);
+        res.status(500).json({ error: 'Failed to load team details' });
+    }
+});
+
+router.put('/teams/:id', async (req, res) => {
+    try {
+        const teamId = req.params.id;
+        const { team_name } = req.body;
+        
+        if (!team_name || !team_name.trim()) {
+            return res.status(400).json({ error: 'Team name is required' });
+        }
+        
+        // Update the team
+        const result = await query(`
+            UPDATE teams 
+            SET team_name = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+            RETURNING *
+        `, [team_name.trim(), teamId]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+        
+        console.log(`✏️ Team ${teamId} updated by admin ${req.user.email}`);
+        
+        res.json({ 
+            message: 'Team updated successfully',
+            team: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('Error updating team:', error);
+        res.status(500).json({ error: 'Failed to update team' });
+    }
+});
+
 module.exports = router;
