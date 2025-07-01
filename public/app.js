@@ -1557,6 +1557,216 @@ async function editTeam(teamId, tournamentId) {
     }
 }
 
+// 📁 Add these functions to public/app.js admin functions
+
+// CSV Upload Functions
+async function uploadOWGRCSV() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    // Create file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.csv';
+    fileInput.style.display = 'none';
+    
+    fileInput.onchange = async function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            showAlert('Please select a CSV file', 'error');
+            return;
+        }
+        
+        showAlert(`📊 Processing ${file.name}... This may take 1-2 minutes for large files.`, 'info');
+        
+        try {
+            // Read and parse CSV
+            const csvText = await readFileAsText(file);
+            const csvData = parseCSV(csvText);
+            
+            if (csvData.length === 0) {
+                showAlert('CSV file appears to be empty or invalid', 'error');
+                return;
+            }
+            
+            showAlert(`📊 Parsed ${csvData.length} rows. Uploading to database...`, 'info');
+            
+            // Upload to server
+            const response = await fetch('/api/admin/upload-owgr-csv', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({ csvData: csvData })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                showAlert(`🎉 SUCCESS! Processed ${result.stats.total_processed} golfers!`, 'success');
+                showAlert(`📊 Added: ${result.stats.golfers_added}, Updated: ${result.stats.golfers_updated}`, 'info');
+                showAlert(`🏌️ Total golfers now: ${result.stats.final_golfer_count}`, 'success');
+                
+                // Refresh admin stats
+                loadAdminStats();
+            } else {
+                showAlert(`❌ Upload failed: ${result.error}`, 'error');
+            }
+            
+        } catch (error) {
+            showAlert(`❌ CSV processing failed: ${error.message}`, 'error');
+        }
+    };
+    
+    // Trigger file selection
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
+}
+
+// Helper function to read file as text
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = event => resolve(event.target.result);
+        reader.onerror = error => reject(error);
+        reader.readAsText(file);
+    });
+}
+
+// Simple CSV parser
+function parseCSV(text) {
+    const lines = text.split('\n');
+    if (lines.length < 2) return [];
+    
+    // Get headers from first line
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    const data = [];
+    
+    // Process data lines
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        
+        const values = parseCSVLine(line);
+        if (values.length !== headers.length) continue;
+        
+        const row = {};
+        headers.forEach((header, index) => {
+            row[header] = values[index] || '';
+        });
+        
+        data.push(row);
+    }
+    
+    return data;
+}
+
+// Parse a single CSV line (handles quotes and commas)
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    
+    result.push(current.trim());
+    return result;
+}
+
+// Check upload statistics
+async function checkUploadStats() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/admin/upload-stats', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const data = await response.json();
+        
+        let message = `📊 Golfer Data Sources:\n`;
+        data.upload_sources.forEach(source => {
+            message += `• ${source.data_source}: ${source.count} golfers\n`;
+        });
+        
+        message += `\nTotal: ${data.total_golfers.rows[0].count} golfers`;
+        
+        if (data.recent_csv_uploads.length > 0) {
+            message += `\n\nRecent CSV uploads: ${data.recent_csv_uploads.length}`;
+        }
+        
+        showAlert(message, 'info');
+        console.log('📊 Upload Stats:', data);
+        
+    } catch (error) {
+        showAlert('❌ Failed to check upload stats: ' + error.message, 'error');
+    }
+}
+
+// Clear all golfers and start fresh (optional)
+async function clearAllGolfers() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmClear = confirm('⚠️ WARNING: This will delete ALL golfers and team references. This cannot be undone. Are you sure?');
+    if (!confirmClear) return;
+    
+    const doubleConfirm = confirm('🚨 FINAL WARNING: This will wipe all golfer data. Type YES in the next prompt to confirm.');
+    if (!doubleConfirm) return;
+    
+    const finalConfirm = prompt('Type "DELETE ALL GOLFERS" to confirm:');
+    if (finalConfirm !== 'DELETE ALL GOLFERS') {
+        showAlert('Cancelled - exact text not entered', 'info');
+        return;
+    }
+    
+    try {
+        showAlert('🗑️ Clearing all golfer data...', 'info');
+        
+        const response = await fetch('/api/reset/golfers-only', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showAlert('✅ All golfers cleared! Ready for fresh CSV upload.', 'success');
+            loadAdminStats();
+        } else {
+            showAlert('❌ Clear failed: ' + (result.error || 'Unknown error'), 'error');
+        }
+        
+    } catch (error) {
+        showAlert('❌ Clear failed: ' + error.message, 'error');
+    }
+}
+
 // Enhanced golfer loading and display with professional data
 async function loadGolfers() {
     try {
