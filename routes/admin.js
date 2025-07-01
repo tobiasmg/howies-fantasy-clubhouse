@@ -1362,56 +1362,8 @@ router.get('/golfers/search', async (req, res) => {
     }
 });
 
-router.get('/teams/:id/details', async (req, res) => {
-    try {
-        const teamId = req.params.id;
-        
-        const teamResult = await query(`
-            SELECT 
-                t.*,
-                u.username,
-                u.email,
-                tour.name as tournament_name,
-                tour.start_date,
-                tour.end_date
-            FROM teams t
-            JOIN users u ON t.user_id = u.id
-            JOIN tournaments tour ON t.tournament_id = tour.id
-            WHERE t.id = $1
-        `, [teamId]);
-        
-        if (teamResult.rows.length === 0) {
-            return res.status(404).json({ error: 'Team not found' });
-        }
-        
-        const team = teamResult.rows[0];
-        
-        // Get golfer details
-        const golferIds = [
-            team.golfer1_id, team.golfer2_id, team.golfer3_id,
-            team.golfer4_id, team.golfer5_id, team.golfer6_id
-        ].filter(Boolean);
-        
-        const golfers = [];
-        for (const golferId of golferIds) {
-            const golferResult = await query('SELECT * FROM golfers WHERE id = $1', [golferId]);
-            if (golferResult.rows.length > 0) {
-                golfers.push(golferResult.rows[0]);
-            }
-        }
-        
-        res.json({
-            ...team,
-            golfers: golfers
-        });
-        
-    } catch (error) {
-        console.error('Error loading team details:', error);
-        res.status(500).json({ error: 'Failed to load team details' });
-    }
-});
-
-// Update in routes/admin.js - Replace existing team details route
+// Replace the existing route in routes/admin.js (around line 1050-1150)
+// Look for: router.get('/teams/:id/details', async (req, res) => {
 
 router.get('/teams/:id/details', async (req, res) => {
     try {
@@ -1462,19 +1414,28 @@ router.get('/teams/:id/details', async (req, res) => {
             }
         }
         
-        // Determine if team can be edited
+        // ADMIN OVERRIDE: Admins can always edit golfers
         const startDate = new Date(team.start_date);
         const now = new Date();
-        const canEditGolfers = startDate > now || req.user.isAdmin;
-        const canEditName = !team.is_completed;
+        const isUpcoming = startDate > now;
+        const canEditGolfers = req.user.isAdmin; // Admin can ALWAYS edit golfers
+        const canEditName = !team.is_completed || req.user.isAdmin; // Admin can edit unless completed
+        
+        console.log('🔧 Team edit permissions:', {
+            teamId: teamId,
+            isAdmin: req.user.isAdmin,
+            isUpcoming: isUpcoming,
+            canEditGolfers: canEditGolfers,
+            tournamentStatus: team.is_active ? 'active' : (isUpcoming ? 'upcoming' : 'completed')
+        });
         
         res.json({
             ...team,
             golfers: golfers,
-            can_edit_golfers: canEditGolfers,
+            can_edit_golfers: canEditGolfers, // Always true for admins
             can_edit_name: canEditName,
             tournament_status: {
-                is_upcoming: startDate > now,
+                is_upcoming: isUpcoming,
                 is_active: team.is_active && startDate <= now && new Date(team.end_date) >= now,
                 is_completed: team.is_completed
             }
@@ -1485,6 +1446,7 @@ router.get('/teams/:id/details', async (req, res) => {
         res.status(500).json({ error: 'Failed to load team details' });
     }
 });
+
 // Enhanced leaderboard route for tournament management
 router.get('/tournaments/:id/leaderboard', async (req, res) => {
     try {
