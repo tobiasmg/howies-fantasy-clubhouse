@@ -729,4 +729,84 @@ router.get('/scraping/health', async (req, res) => {
     }
 });
 
+// Add this route to your routes/admin.js file (after the existing routes)
+
+// Create test tournament for checking golfer upgrades
+router.post('/test-tournament', async (req, res) => {
+    try {
+        console.log('🧪 Creating test tournament for golfer testing...');
+        
+        const testTournament = {
+            name: '🧪 Test Tournament - Professional Golfers',
+            course_name: 'Test Golf Club',
+            location: 'Testing Grounds, USA',
+            start_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
+            end_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+            is_active: false,
+            prize_fund: 1000000,
+            course_par: 72
+        };
+        
+        const result = await query(`
+            INSERT INTO tournaments (name, course_name, location, start_date, end_date, is_active, prize_fund, course_par) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *
+        `, [
+            testTournament.name,
+            testTournament.course_name,
+            testTournament.location,
+            testTournament.start_date,
+            testTournament.end_date,
+            testTournament.is_active,
+            testTournament.prize_fund,
+            testTournament.course_par
+        ]);
+        
+        res.json({
+            success: true,
+            message: 'Test tournament created successfully!',
+            tournament: result.rows[0]
+        });
+        
+    } catch (error) {
+        console.error('❌ Test tournament creation failed:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to create test tournament', 
+            details: error.message 
+        });
+    }
+});
+
+// Make existing tournament upcoming for testing
+router.post('/make-tournament-upcoming/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        const newStartDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
+        const newEndDate = new Date(Date.now() + 6 * 24 * 60 * 60 * 1000); // 6 days from now
+        
+        await query(`
+            UPDATE tournaments 
+            SET start_date = $1, end_date = $2, is_active = false, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $3
+        `, [newStartDate, newEndDate, id]);
+        
+        res.json({
+            success: true,
+            message: 'Tournament updated to upcoming status',
+            newStartDate: newStartDate,
+            newEndDate: newEndDate
+        });
+        
+    } catch (error) {
+        console.error('❌ Tournament update failed:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to update tournament', 
+            details: error.message 
+        });
+    }
+});
+
 module.exports = router;
