@@ -937,37 +937,73 @@
                     </div>
                 </div>
 
-                <!-- Professional Golfer Management -->
+ <!-- 📁 Replace your Professional Golfer Database section in public/index.html with this: -->
+
+<!-- Professional Golfer Management - Enhanced with CSV Upload -->
 <div class="card">
     <div class="card-header">
         <h2 class="card-title">🏌️ Professional Golfer Database</h2>
     </div>
     
     <div style="margin-bottom: 1.5rem;">
-        <div class="alert alert-info">
-            <strong>REAL Professional Golfer Scraping:</strong><br>
-            Scrape 250+ REAL professional golfers from ESPN Rankings, PGA Tour Database, Major Champions, and OWGR. All names are verifiable on ESPN/PGA Tour websites.
+        <div class="alert alert-success">
+            <strong>🎯 CSV Upload System:</strong><br>
+            Upload official OWGR CSV files for 8,000+ real professional golfers! Download CSV from 
+            <a href="https://owgr.com" target="_blank" style="color: #2e7d32; font-weight: bold;">owgr.com</a> 
+            → Rankings → Export → CSV
         </div>
     </div>
     
-    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-        <button class="btn btn-success" onclick="scrapeReal250Golfers()">
-            <i class="fas fa-golf-ball"></i> Scrape 250+ REAL Golfers
-        </button>
-        <button class="btn btn-secondary" onclick="checkGolferCount()">
-            <i class="fas fa-count"></i> Check Current Count
-        </button>
-        <button class="btn btn-warning" onclick="createTestTournament()">
-            <i class="fas fa-plus"></i> Create Test Tournament
-        </button>
-        <button class="btn btn-success" onclick="loadCompleteDatabase()">
-            <i class="fas fa-download"></i> Load Curated Database
-        </button>
-        <button class="btn btn-warning" onclick="cleanupInvalidGolfers()">
-            <i class="fas fa-broom"></i> Clean Invalid Golfers
-        </button>
+    <!-- CSV Upload Section -->
+    <div class="admin-action-grid" style="margin-bottom: 2rem;">
+        <div class="admin-action-item" style="border: 3px solid #4CAF50; background: linear-gradient(135deg, #f8fff8, #ffffff);">
+            <h4><i class="fas fa-upload"></i> Upload OWGR CSV</h4>
+            <p>Upload an official OWGR rankings CSV file. Supports 8,000+ real professional golfers with official rankings and points.</p>
+            <button class="btn btn-success" onclick="uploadOWGRCSV()">
+                📊 Upload CSV File
+            </button>
+        </div>
+        
+        <div class="admin-action-item">
+            <h4><i class="fas fa-chart-bar"></i> Upload Statistics</h4>
+            <p>Check data sources, golfer counts, and recent uploads to see what data you currently have.</p>
+            <button class="btn btn-secondary" onclick="checkUploadStats()">
+                📊 Check Upload Stats
+            </button>
+        </div>
+        
+        <div class="admin-action-item">
+            <h4><i class="fas fa-broom"></i> Clear All Golfers</h4>
+            <p>⚠️ Dangerous: Remove all golfers to start fresh. Use before uploading a new CSV file.</p>
+            <button class="btn btn-danger" onclick="clearAllGolfers()">
+                🗑️ Clear All Golfers
+            </button>
+        </div>
+    </div>
+    
+    <!-- Legacy Scraping Options (Backup) -->
+    <div style="border-top: 2px solid #f0f0f0; padding-top: 1.5rem;">
+        <h3 style="color: #666; margin-bottom: 1rem;">🕷️ Legacy Web Scraping (Backup)</h3>
+        <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+            <button class="btn btn-secondary" onclick="scrapeReal250Golfers()">
+                <i class="fas fa-golf-ball"></i> Scrape from ESPN
+            </button>
+            <button class="btn btn-secondary" onclick="checkGolferCount()">
+                <i class="fas fa-count"></i> Check Current Count
+            </button>
+            <button class="btn btn-secondary" onclick="fixGolferRankings()">
+                <i class="fas fa-sort-numeric-down"></i> Fix Rankings
+            </button>
+            <button class="btn btn-warning" onclick="createTestTournament()">
+                <i class="fas fa-plus"></i> Create Test Tournament
+            </button>
+        </div>
+        <p style="color: #666; font-size: 0.9rem; font-style: italic;">
+            Note: Web scraping is unreliable due to rate limits. CSV upload is the recommended method.
+        </p>
     </div>
 
+    <!-- Statistics Display -->
     <div id="golferStatsDisplay" style="display: none;">
         <div class="stats-grid">
             <div class="stat-card">
@@ -990,7 +1026,34 @@
     </div>
 </div>
 
-
+<!-- Instructions Card -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">📋 How to Upload OWGR CSV</h2>
+    </div>
+    
+    <div style="padding: 1rem; background: #f8f9fa; border-radius: 8px; margin-bottom: 1rem;">
+        <h4 style="color: #1e3c72; margin-bottom: 1rem;">Step-by-Step Instructions:</h4>
+        <ol style="line-height: 1.8; color: #333;">
+            <li>Go to <a href="https://owgr.com" target="_blank" style="color: #2a5298; font-weight: bold;">owgr.com</a></li>
+            <li>Navigate to <strong>Rankings</strong> section</li>
+            <li>Look for <strong>Export</strong> or <strong>Download</strong> option</li>
+            <li>Select <strong>CSV format</strong></li>
+            <li>Download the rankings file</li>
+            <li>Return here and click <strong>"Upload CSV File"</strong></li>
+            <li>Select your downloaded CSV file</li>
+            <li>Wait for processing (1-2 minutes for large files)</li>
+        </ol>
+    </div>
+    
+    <div class="alert alert-info">
+        <strong>💡 Pro Tips:</strong><br>
+        • CSV files may contain 8,000+ golfers (much more than web scraping)<br>
+        • Upload gives you official OWGR rankings and points<br>
+        • You can upload new CSV files anytime to update rankings<br>
+        • Clear existing golfers first if you want a completely fresh dataset
+    </div>
+</div>
                 
                 <!-- System Management - Enhanced with better descriptions -->
                 <div class="card">
