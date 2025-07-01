@@ -938,52 +938,55 @@
                 </div>
 
                 <!-- Professional Golfer Management -->
-                <div class="card">
-                    <div class="card-header">
-                        <h2 class="card-title">🏌️ Professional Golfer Database</h2>
-                    </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <div class="alert alert-info">
-                            <strong>Professional Features Available:</strong><br>
-                            Load 250+ real professional golfers including Tiger Woods, Rory McIlroy, Scottie Scheffler, and the complete PGA Tour roster with real earnings, world rankings, and career statistics.
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
-                        <button class="btn btn-success" onclick="loadCompleteDatabase()">
-                            <i class="fas fa-download"></i> Load 250+ Professional Golfers
-                        </button>
-                        <button class="btn btn-secondary" onclick="checkGolferCount()">
-                            <i class="fas fa-count"></i> Check Current Count
-                        </button>
-                        <button class="btn btn-warning" onclick="createTestTournament()">
-                            <i class="fas fa-plus"></i> Create Test Tournament
-                        </button>
-                    </div>
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">🏌️ Professional Golfer Database</h2>
+    </div>
+    
+    <div style="margin-bottom: 1.5rem;">
+        <div class="alert alert-info">
+            <strong>REAL Professional Golfer Scraping:</strong><br>
+            Scrape 250+ REAL professional golfers from ESPN Rankings, PGA Tour Database, Major Champions, and OWGR. All names are verifiable on ESPN/PGA Tour websites.
+        </div>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <button class="btn btn-success" onclick="scrapeReal250Golfers()">
+            <i class="fas fa-golf-ball"></i> Scrape 250+ REAL Golfers
+        </button>
+        <button class="btn btn-secondary" onclick="checkGolferCount()">
+            <i class="fas fa-count"></i> Check Current Count
+        </button>
+        <button class="btn btn-warning" onclick="createTestTournament()">
+            <i class="fas fa-plus"></i> Create Test Tournament
+        </button>
+        <button class="btn btn-success" onclick="loadCompleteDatabase()">
+            <i class="fas fa-download"></i> Load Curated Database
+        </button>
+    </div>
 
-                    <div id="golferStatsDisplay" style="display: none;">
-                        <div class="stats-grid">
-                            <div class="stat-card">
-                                <div class="stat-number" id="professionalGolfers">-</div>
-                                <div class="stat-label">Professional Golfers</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="legendaryGolfers">-</div>
-                                <div class="stat-label">Hall of Fame Players</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="activeStars">-</div>
-                                <div class="stat-label">Current Stars</div>
-                            </div>
-                            <div class="stat-card">
-                                <div class="stat-number" id="countriesRepresented">-</div>
-                                <div class="stat-label">Countries</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+    <div id="golferStatsDisplay" style="display: none;">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="professionalGolfers">-</div>
+                <div class="stat-label">Professional Golfers</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="legendaryGolfers">-</div>
+                <div class="stat-label">Hall of Fame Players</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeStars">-</div>
+                <div class="stat-label">Current Stars</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="countriesRepresented">-</div>
+                <div class="stat-label">Countries</div>
+            </div>
+        </div>
+    </div>
+</div>
+                
                 <!-- System Management - Enhanced with better descriptions -->
                 <div class="card">
                     <div class="card-header">
