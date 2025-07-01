@@ -103,6 +103,20 @@
             font-size: 0.9rem;
         }
 
+        .btn-success {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800, #f57c00);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .main-content {
             min-height: calc(100vh - 80px);
             padding: 2rem;
@@ -308,19 +322,19 @@
         }
 
         .alert-success {
-            background: #e8f5e9;
+            background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
             color: #2e7d32;
             border-color: #4caf50;
         }
 
         .alert-info {
-            background: #e3f2fd;
+            background: linear-gradient(135deg, #e3f2fd, #e8f4fd);
             color: #1976d2;
             border-color: #2196f3;
         }
 
         .alert-error {
-            background: #ffebee;
+            background: linear-gradient(135deg, #ffebee, #fce4ec);
             color: #c62828;
             border-color: #f44336;
         }
@@ -338,17 +352,33 @@
             padding: 1.5rem;
             border-radius: 15px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+            pointer-events: none;
         }
 
         .stat-number {
-            font-size: 2rem;
+            font-size: 2.2rem;
             font-weight: bold;
             margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         .stat-label {
             font-size: 0.9rem;
             opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .leaderboard-table {
@@ -391,11 +421,134 @@
             margin-bottom: 1rem;
         }
 
+        /* Enhanced golfer styles */
         .golfers-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.2rem;
             margin-top: 1rem;
+        }
+
+        .golfer-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .golfer-card:hover {
+            border-color: #2a5298;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        .golfer-card.selected {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #f8fff8, #e8f5e8);
+            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.3);
+        }
+
+        .golfer-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .golfer-ranking {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #2a5298;
+            color: white;
+            padding: 0.25rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            min-width: 35px;
+            text-align: center;
+        }
+
+        .golfer-ranking.top-10 {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+        }
+
+        .golfer-ranking.top-50 {
+            background: linear-gradient(135deg, #C0C0C0, #808080);
+            color: white;
+        }
+
+        .golfer-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: #1e3c72;
+            margin-bottom: 0.8rem;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .wins-badge {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .golfer-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.4rem;
+            font-size: 0.85rem;
+            color: #666;
+        }
+
+        .golfer-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.2rem 0;
+        }
+
+        .golfer-stat span:first-child {
+            font-weight: 500;
+            color: #444;
+        }
+
+        .golfer-stat span:last-child {
+            font-weight: 600;
+            color: #2a5298;
+        }
+
+        .selected-indicator {
+            text-align: center;
+            color: #4CAF50;
+            font-weight: bold;
+            margin-top: 0.8rem;
+            padding: 0.5rem;
+            background: rgba(76, 175, 80, 0.1);
+            border-radius: 8px;
+        }
+
+        .pro-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .country-flag {
+            display: inline-block;
+            margin-right: 0.5rem;
+            font-size: 1.3rem;
         }
 
         .team-golfers {
@@ -408,64 +561,6 @@
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 0.75rem;
-        }
-
-        .golfer-card {
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            padding: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .golfer-card:hover {
-            border-color: #2a5298;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-
-        .golfer-card.selected {
-            border-color: #4CAF50;
-            background: linear-gradient(135deg, #f8fff8, #e8f5e8);
-        }
-
-        .golfer-card.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .golfer-name {
-            font-weight: bold;
-            font-size: 1.1rem;
-            color: #1e3c72;
-            margin-bottom: 0.5rem;
-        }
-
-        .golfer-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            color: #666;
-        }
-
-        .golfer-stat {
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .golfer-ranking {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #2a5298;
-            color: white;
-            padding: 0.25rem 0.5rem;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            font-weight: bold;
         }
 
         .selected-golfers-grid {
@@ -500,14 +595,24 @@
             background: #d32f2f;
         }
 
-        .country-flag {
-            display: inline-block;
-            margin-right: 0.5rem;
-            font-size: 1.2rem;
-        }
-
         .hidden {
             display: none !important;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2a5298;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -622,11 +727,11 @@
             </div>
         </div>
 
-        <!-- Admin View -->
+        <!-- Enhanced Admin View -->
         <div id="adminView" class="view">
             <div class="card">
                 <div class="card-header">
-                    <h1 class="card-title">Admin Dashboard</h1>
+                    <h1 class="card-title">🎛️ Enhanced Admin Dashboard</h1>
                     <button class="btn btn-small" onclick="loadAdminStats()">
                         <i class="fas fa-refresh"></i> Refresh
                     </button>
@@ -651,9 +756,56 @@
                     </div>
                 </div>
 
+                <!-- Professional Golfer Management -->
                 <div class="card">
                     <div class="card-header">
-                        <h2 class="card-title">Admin Actions</h2>
+                        <h2 class="card-title">🏌️ Professional Golfer Database</h2>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <div class="alert alert-info">
+                            <strong>Professional Features Available:</strong><br>
+                            Load 250+ real professional golfers including Tiger Woods, Rory McIlroy, Scottie Scheffler, and the complete PGA Tour roster with real earnings, world rankings, and career statistics.
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <button class="btn btn-success" onclick="loadCompleteDatabase()">
+                            <i class="fas fa-download"></i> Load 250+ Professional Golfers
+                        </button>
+                        <button class="btn btn-secondary" onclick="checkGolferCount()">
+                            <i class="fas fa-count"></i> Check Current Count
+                        </button>
+                        <button class="btn btn-warning" onclick="createTestTournament()">
+                            <i class="fas fa-plus"></i> Create Test Tournament
+                        </button>
+                    </div>
+
+                    <div id="golferStatsDisplay" style="display: none;">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-number" id="professionalGolfers">-</div>
+                                <div class="stat-label">Professional Golfers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="legendaryGolfers">-</div>
+                                <div class="stat-label">Hall of Fame Players</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="activeStars">-</div>
+                                <div class="stat-label">Current Stars</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="countriesRepresented">-</div>
+                                <div class="stat-label">Countries</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🔧 System Management</h2>
                     </div>
                     
                     <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
@@ -666,6 +818,9 @@
                         <button class="btn btn-secondary" onclick="checkHealth()">
                             <i class="fas fa-heart"></i> Check System Health
                         </button>
+                        <a href="/upgrade.html" target="_blank" class="btn btn-warning">
+                            <i class="fas fa-rocket"></i> System Upgrade
+                        </a>
                     </div>
                 </div>
             </div>
@@ -709,7 +864,7 @@
                         <!-- Selected golfers will appear here -->
                     </div>
                     
-                    <!-- Team Actions - Moved here -->
+                    <!-- Team Actions -->
                     <div style="text-align: center; margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #f0f0f0;">
                         <button class="btn" id="saveTeamBtn" onclick="saveTeam()" disabled>
                             <i class="fas fa-save"></i> Save Team
@@ -723,9 +878,9 @@
                 <!-- Golfer Search and Filter -->
                 <div class="card">
                     <div class="card-header">
-                        <h3>Available Golfers</h3>
+                        <h3>Available Professional Golfers</h3>
                         <div style="display: flex; gap: 1rem; align-items: center;">
-                            <input type="text" id="golferSearch" class="form-control" placeholder="Search golfers..." style="width: 250px;">
+                            <input type="text" id="golferSearch" class="form-control" placeholder="Search golfers (e.g., Tiger Woods)..." style="width: 250px;">
                             <select id="countryFilter" class="form-control" style="width: 150px;">
                                 <option value="">All Countries</option>
                             </select>
@@ -738,7 +893,7 @@
                     <div id="golfersContainer" class="golfers-grid">
                         <div class="empty-state">
                             <i class="fas fa-golf-ball"></i>
-                            <p>Loading golfers...</p>
+                            <p>Loading professional golfers...</p>
                         </div>
                     </div>
                 </div>
