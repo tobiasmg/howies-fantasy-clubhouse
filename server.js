@@ -253,6 +253,24 @@ async function addInitialData() {
         }
         console.log('✅ Demo users created');
         
+        // 🔧 ADD THIS SECTION - Enhanced Scraping Schema Update
+        console.log('🔧 Ensuring enhanced scraping schema...');
+        try {
+            await query(`
+                ALTER TABLE golfers 
+                ADD COLUMN IF NOT EXISTS owgr_points DECIMAL(10,2) DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS season_earnings DECIMAL(12,2) DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS fedex_cup_points INTEGER DEFAULT 0,
+                ADD COLUMN IF NOT EXISTS data_source VARCHAR(100),
+                ADD COLUMN IF NOT EXISTS last_scraped TIMESTAMP
+            `);
+            console.log('✅ Enhanced scraping schema ready');
+        } catch (schemaError) {
+            console.error('⚠️ Schema update error (non-critical):', schemaError.message);
+            // Continue execution even if schema update fails
+        }
+        // 🔧 END OF SCHEMA UPDATE SECTION
+        
         // Add sample golfers
         const sampleGolfers = [
             { name: 'Scottie Scheffler', country: 'USA', ranking: 1, wins: 12, majors: 2 },
