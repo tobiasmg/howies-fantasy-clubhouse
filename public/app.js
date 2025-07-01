@@ -571,6 +571,44 @@ async function loadCompleteDatabase() {
     }
 }
 
+async function updateGolferStatistics() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmUpdate = confirm('This will update all golfer statistics including 2025 earnings, cuts made, and top 10 finishes. Continue?');
+    if (!confirmUpdate) return;
+    
+    try {
+        showAlert('🏌️ Updating golfer statistics... Please wait.', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/update-golfer-stats`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showAlert(`✅ SUCCESS! Updated ${data.stats.manually_updated} golfers with complete statistics!`, 'success');
+            showAlert(`📊 ${data.stats.golfers_with_earnings} golfers now have 2025 earnings data`, 'info');
+            
+            // Refresh admin stats
+            loadAdminStats();
+            
+            showAlert('🎯 Golfers now show complete statistics when creating teams!', 'success');
+        } else {
+            showAlert('❌ Failed to update golfer statistics: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Golfer statistics update failed: ' + error.message, 'error');
+    }
+}
+
 async function checkGolferCount() {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
