@@ -1840,24 +1840,24 @@ function displayGolfers(golferList) {
                     ${golfer.name}
                     ${golfer.wins_this_season > 0 ? '<span class="wins-badge">🏆</span>' : ''}
                 </div>
-                <div class="golfer-stats">
-    <div class="golfer-stat">
-        <span>Country:</span>
-        <span>${golfer.country || 'Unknown'}</span>
-    </div>
-    <div class="golfer-stat">
-        <span>World Rank:</span>
-        <span class="${rankingClass}">${rankingDisplay}</span>
-    </div>
-    <div class="golfer-stat">
-        <span>OWGR Points:</span>
-        <span>${golfer.owgr_points ? golfer.owgr_points.toFixed(2) : 'N/A'}</span>
-    </div>
-    <div class="golfer-stat">
-        <span>Events Played:</span>
-        <span>${golfer.total_events || 'N/A'}</span>
-    </div>
-</div>
+           <div class="golfer-stats">
+                <div class="golfer-stat">
+                    <span>Country:</span>
+                    <span>${golfer.country || 'Unknown'}</span>
+                </div>
+            <div class="golfer-stat">
+                    <span>World Rank:</span>
+                    <span class="${rankingClass}">${rankingDisplay}</span>
+                </div>
+            <div class="golfer-stat">
+                    <span>OWGR Points:</span>
+                    <span>${golfer.owgr_points && !isNaN(parseFloat(golfer.owgr_points)) ? parseFloat(golfer.owgr_points).toFixed(2) : 'N/A'}</span>
+                </div>
+            <div class="golfer-stat">
+                    <span>Events Played:</span>
+                    <span>${golfer.total_events && !isNaN(parseInt(golfer.total_events)) ? parseInt(golfer.total_events) : 'N/A'}</span>
+                </div>
+            </div>
                 ${isSelected ? '<div class="selected-indicator">✓ SELECTED</div>' : ''}
                 ${golfer.data_source === 'complete_professional_load' || golfer.data_source === 'professional_load' ? '<div class="pro-badge">PRO DATA</div>' : ''}
             </div>
