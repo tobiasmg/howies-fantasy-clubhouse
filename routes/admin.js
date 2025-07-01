@@ -1230,6 +1230,138 @@ router.delete('/teams/:id', async (req, res) => {
     }
 });
 
+// Add to routes/admin.js - Replace existing PUT /teams/:id route
+
+// Enhanced team update route with golfer management
+router.put('/teams/:id', async (req, res) => {
+    try {
+        const teamId = req.params.id;
+        const { team_name, golfer_ids } = req.body;
+        
+        if (!team_name || !team_name.trim()) {
+            return res.status(400).json({ error: 'Team name is required' });
+        }
+        
+        // Get current team info
+        const teamInfo = await query(`
+            SELECT t.*, tour.start_date, tour.end_date, tour.name as tournament_name
+            FROM teams t
+            JOIN tournaments tour ON t.tournament_id = tour.id
+            WHERE t.id = $1
+        `, [teamId]);
+        
+        if (teamInfo.rows.length === 0) {
+            return res.status(404).json({ error: 'Team not found' });
+        }
+        
+        const team = teamInfo.rows[0];
+        const startDate = new Date(team.start_date);
+        const now = new Date();
+        
+        // Check if tournament has started (admins can edit active tournaments)
+        const canEditGolfers = startDate > now || req.user.isAdmin;
+        
+        if (golfer_ids && golfer_ids.length > 0) {
+            if (!canEditGolfers) {
+                return res.status(400).json({ 
+                    error: 'Cannot modify golfers - tournament has started and you do not have admin privileges' 
+                });
+            }
+            
+            if (golfer_ids.length !== 6) {
+                return res.status(400).json({ error: 'Must select exactly 6 golfers' });
+            }
+            
+            // Validate all golfer IDs exist
+            const golferCheck = await query(`
+                SELECT COUNT(*) as count 
+                FROM golfers 
+                WHERE id = ANY($1) AND is_active = true
+            `, [golfer_ids]);
+            
+            if (parseInt(golferCheck.rows[0].count) !== 6) {
+                return res.status(400).json({ error: 'One or more golfers not found or inactive' });
+            }
+            
+            // Update team with new golfers
+            const result = await query(`
+                UPDATE teams 
+                SET 
+                    team_name = $1,
+                    golfer1_id = $2,
+                    golfer2_id = $3,
+                    golfer3_id = $4,
+                    golfer4_id = $5,
+                    golfer5_id = $6,
+                    golfer6_id = $7,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = $8
+                RETURNING *
+            `, [team_name.trim(), ...golfer_ids, teamId]);
+            
+            console.log(`✏️ Team ${teamId} updated (including golfers) by admin ${req.user.email}`);
+            
+            res.json({ 
+                message: 'Team and golfers updated successfully',
+                team: result.rows[0],
+                golfersUpdated: true
+            });
+            
+        } else {
+            // Update only team name
+            const result = await query(`
+                UPDATE teams 
+                SET team_name = $1, updated_at = CURRENT_TIMESTAMP
+                WHERE id = $2
+                RETURNING *
+            `, [team_name.trim(), teamId]);
+            
+            console.log(`✏️ Team ${teamId} name updated by admin ${req.user.email}`);
+            
+            res.json({ 
+                message: 'Team name updated successfully',
+                team: result.rows[0],
+                golfersUpdated: false
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error updating team:', error);
+        res.status(500).json({ error: 'Failed to update team' });
+    }
+});
+
+// Add golfer search endpoint for admin
+router.get('/golfers/search', async (req, res) => {
+    try {
+        const { q, limit = 50 } = req.query;
+        
+        let whereClause = 'WHERE is_active = true';
+        let queryParams = [];
+        
+        if (q && q.trim()) {
+            whereClause += ' AND (LOWER(name) LIKE LOWER($1) OR LOWER(country) LIKE LOWER($1))';
+            queryParams.push(`%${q.trim()}%`);
+        }
+        
+        queryParams.push(limit);
+        
+        const result = await query(`
+            SELECT id, name, country, world_ranking, pga_tour_wins, major_wins, 
+                   career_earnings, season_earnings, data_source
+            FROM golfers 
+            ${whereClause}
+            ORDER BY world_ranking ASC, name ASC
+            LIMIT $${queryParams.length}
+        `, queryParams);
+        
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error searching golfers:', error);
+        res.status(500).json({ error: 'Failed to search golfers' });
+    }
+});
+
 router.get('/teams/:id/details', async (req, res) => {
     try {
         const teamId = req.params.id;
