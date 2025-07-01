@@ -1795,5 +1795,69 @@ router.post('/scrape-real-250-golfers', async (req, res) => {
     }
 });
 
+// Add this route to routes/admin.js
+router.post('/cleanup-invalid-golfers', async (req, res) => {
+    try {
+        console.log('🧹 Cleaning up invalid golfer entries...');
+        
+        // Delete golfers with invalid names (numbers, single words, etc.)
+        const cleanupResult = await query(`
+            DELETE FROM golfers 
+            WHERE 
+                -- Names that are just numbers
+                name ~ '^[0-9]+$' 
+                OR name ~ '^[0-9]+\.[0-9]+$'
+                -- Names shorter than 4 characters
+                OR LENGTH(name) < 4
+                -- Names without spaces (single words)
+                OR name NOT LIKE '% %'
+                -- Names with weird characters
+                OR name ~ '[^a-zA-Z0-9\s\.\-\']'
+                -- Obviously invalid patterns
+                OR name ILIKE '%undefined%'
+                OR name ILIKE '%null%'
+                OR name = ''
+                OR name IS NULL
+            RETURNING name
+        `);
+        
+        console.log(`🗑️ Removed ${cleanupResult.rows.length} invalid golfer entries`);
+        
+        // Also clean up golfers with no statistical data
+        const noStatsCleanup = await query(`
+            DELETE FROM golfers 
+            WHERE world_ranking IS NULL 
+            AND pga_tour_wins IS NULL 
+            AND major_wins IS NULL 
+            AND career_earnings IS NULL
+            AND season_earnings IS NULL
+            RETURNING name
+        `);
+        
+        console.log(`📊 Removed ${noStatsCleanup.rows.length} golfers with no stats`);
+        
+        // Get count of remaining valid golfers
+        const validCount = await query(`
+            SELECT COUNT(*) as count FROM golfers WHERE is_active = true
+        `);
+        
+        res.json({
+            success: true,
+            message: 'Cleanup completed successfully!',
+            removed_invalid: cleanupResult.rows.length,
+            removed_no_stats: noStatsCleanup.rows.length,
+            remaining_golfers: validCount.rows[0].count
+        });
+        
+    } catch (error) {
+        console.error('❌ Cleanup failed:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to cleanup invalid golfers',
+            details: error.message 
+        });
+    }
+});
+
 module.exports = router;
 
