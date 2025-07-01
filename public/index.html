@@ -1541,35 +1541,45 @@
         </div>
 
         <!-- Login View -->
-        <div id="loginView" class="view">
-            <div class="auth-container">
-                <div class="auth-header">
-                    <h2>Login</h2>
-                    <p>Welcome back to Howies Fantasy Clubhouse!</p>
-                </div>
-                
-                <form id="loginForm">
-                    <div class="form-group">
-                        <label for="loginEmail">Email</label>
-                        <input type="email" id="loginEmail" class="form-control" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="loginPassword">Password</label>
-                        <input type="password" id="loginPassword" class="form-control" required>
-                    </div>
-                    
-                    <button type="submit" class="btn" style="width: 100%;">Login</button>
-                </form>
-                
-                <div style="margin-top: 1rem; text-align: center;">
-                    <p><strong>Demo Accounts:</strong></p>
-                    <p>Admin: admin@howiesclubhouse.com / admin123!</p>
-                    <p>Demo: demo@howiesclubhouse.com / demo123</p>
-                </div>
-            </div>
+     <div id="loginView" class="view">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h2>Login</h2>
+            <p>Welcome back to Howies Fantasy Clubhouse!</p>
         </div>
-
+        
+        <form id="loginForm" onsubmit="handleLoginFixed(event); return false;">
+            <div class="form-group">
+                <label for="loginEmail">Email</label>
+                <input type="email" id="loginEmail" class="form-control" required 
+                       placeholder="Enter your email">
+            </div>
+            
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" class="form-control" required 
+                       placeholder="Enter your password">
+            </div>
+            
+            <button type="submit" class="btn" style="width: 100%;" 
+                    onclick="handleLoginFixed(event)">
+                Login
+            </button>
+            
+            <!-- Backup button for testing -->
+            <button type="button" class="btn btn-secondary" style="width: 100%; margin-top: 0.5rem;" 
+                    onclick="testLogin()">
+                Test Login (Admin)
+            </button>
+        </form>
+        
+        <div style="margin-top: 1rem; text-align: center;">
+            <p><strong>Demo Accounts:</strong></p>
+            <p>Admin: admin@howiesclubhouse.com / admin123!</p>
+            <p>Demo: demo@howiesclubhouse.com / demo123</p>
+        </div>
+    </div>
+</div>
         <!-- Register View -->
         <div id="registerView" class="view">
             <div class="auth-container">
