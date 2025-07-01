@@ -54,6 +54,103 @@ router.get('/dashboard', async (req, res) => {
     }
 });
 
+// Add this to your routes/admin.js file
+
+// Get scraping status and recent activity
+router.get('/scraping/status', async (req, res) => {
+    try {
+        // Check last updates
+        const lastUpdates = await query(`
+            SELECT 
+                MAX(updated_at) as last_golfer_update,
+                COUNT(CASE WHEN updated_at > NOW() - INTERVAL '24 hours' THEN 1 END) as updated_last_24h
+            FROM golfers
+        `);
+        
+        const recentScores = await query(`
+            SELECT 
+                tg.updated_at,
+                g.name,
+                t.name as tournament_name,
+                tg.position,
+                tg.total_score
+            FROM tournament_golfers tg
+            JOIN golfers g ON tg.golfer_id = g.id
+            JOIN tournaments t ON tg.tournament_id = t.id
+            WHERE tg.updated_at > NOW() - INTERVAL '1 hour'
+            ORDER BY tg.updated_at DESC
+            LIMIT 10
+        `);
+        
+        const activeTournaments = await query(`
+            SELECT COUNT(*) as count
+            FROM tournaments 
+            WHERE is_active = true 
+            AND start_date <= CURRENT_TIMESTAMP 
+            AND end_date >= CURRENT_TIMESTAMP
+        `);
+        
+        res.json({
+            status: 'operational',
+            lastGolferUpdate: lastUpdates.rows[0].last_golfer_update,
+            golfersUpdatedLast24h: lastUpdates.rows[0].updated_last_24h,
+            recentScoreUpdates: recentScores.rows,
+            activeTournaments: activeTournaments.rows[0].count,
+            nextScheduledUpdate: '6:00 AM daily (golfer rankings)',
+            liveScoreInterval: 'Every 15 minutes (during active tournaments)'
+        });
+        
+    } catch (error) {
+        console.error('Scraping status check failed:', error);
+        res.status(500).json({ error: 'Failed to check scraping status' });
+    }
+});
+
+// Manual trigger for golfer rankings update
+router.post('/scraping/update-rankings', async (req, res) => {
+    try {
+        console.log('🔄 Manual golfer rankings update triggered by admin...');
+        
+        // Import and trigger the scraping service
+        const scrapingService = require('../../services/scrapingService');
+        
+        // Don't await - let it run in background
+        scrapingService.updateGolferRankings().catch(error => {
+            console.error('Background ranking update failed:', error);
+        });
+        
+        res.json({ 
+            message: 'Golfer rankings update started in background',
+            note: 'Check scraping status in a few minutes to see results'
+        });
+    } catch (error) {
+        console.error('Manual ranking update trigger failed:', error);
+        res.status(500).json({ error: 'Failed to trigger ranking update' });
+    }
+});
+
+// Manual trigger for live scores
+router.post('/scraping/update-scores', async (req, res) => {
+    try {
+        console.log('🔄 Manual live scores update triggered by admin...');
+        
+        const scrapingService = require('../../services/scrapingService');
+        
+        // Don't await - let it run in background  
+        scrapingService.updateLiveScores().catch(error => {
+            console.error('Background scores update failed:', error);
+        });
+        
+        res.json({ 
+            message: 'Live scores update started in background',
+            note: 'Check scraping status in a few minutes to see results'
+        });
+    } catch (error) {
+        console.error('Manual scores update trigger failed:', error);
+        res.status(500).json({ error: 'Failed to trigger scores update' });
+    }
+});
+
 // === WEB-BASED UPGRADE SYSTEM ROUTES ===
 
 // Check system compatibility
