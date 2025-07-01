@@ -676,6 +676,108 @@ async function createTestTournament() {
     }
 }
 
+// Add these functions to your public/app.js file
+
+async function checkScrapingStatus() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    try {
+        showAlert('🔍 Checking scraping service status...', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/scraping/status`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            const lastUpdate = data.lastGolferUpdate ? new Date(data.lastGolferUpdate).toLocaleString() : 'Never';
+            const recentCount = data.recentScoreUpdates.length;
+            
+            showAlert(`📊 Scraping Status:
+• Last golfer update: ${lastUpdate}
+• Golfers updated (24h): ${data.golfersUpdatedLast24h}
+• Recent score updates: ${recentCount}
+• Active tournaments: ${data.activeTournaments}`, 'success');
+            
+            if (data.recentScoreUpdates.length > 0) {
+                console.log('Recent score updates:', data.recentScoreUpdates);
+            }
+        } else {
+            showAlert('❌ Failed to check scraping status', 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Scraping status check failed: ' + error.message, 'error');
+    }
+}
+
+async function manualUpdateRankings() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmUpdate = confirm('Manually trigger golfer rankings update from OWGR? This may take 1-2 minutes.');
+    if (!confirmUpdate) return;
+    
+    try {
+        showAlert('🏌️ Triggering golfer rankings update...', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/scraping/update-rankings`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showAlert('✅ Golfer rankings update started! Check status in 2-3 minutes.', 'success');
+        } else {
+            showAlert('❌ Failed to trigger rankings update: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Rankings update failed: ' + error.message, 'error');
+    }
+}
+
+async function manualUpdateScores() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmUpdate = confirm('Manually trigger live scores update from ESPN? This works best during active tournaments.');
+    if (!confirmUpdate) return;
+    
+    try {
+        showAlert('🏆 Triggering live scores update...', 'info');
+        
+        const response = await fetch(`${API_BASE}/admin/scraping/update-scores`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showAlert('✅ Live scores update started! Check status in 1-2 minutes.', 'success');
+        } else {
+            showAlert('❌ Failed to trigger scores update: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Scores update failed: ' + error.message, 'error');
+    }
+}
+
 async function triggerDatabaseSetup() {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
