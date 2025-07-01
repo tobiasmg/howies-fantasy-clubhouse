@@ -683,6 +683,44 @@ async function scrapeReal250Golfers() {
     }
 }
 
+
+// Add this function to your public/app.js admin functions
+async function cleanupInvalidGolfers() {
+    if (!currentUser || !currentUser.isAdmin) {
+        showAlert('Admin access required', 'error');
+        return;
+    }
+    
+    const confirmCleanup = confirm('This will remove golfers with invalid names (numbers, single words, no stats). Continue?');
+    if (!confirmCleanup) return;
+    
+    try {
+        showAlert('🧹 Cleaning up invalid golfer entries...', 'info');
+        
+        const response = await fetch('/api/admin/cleanup-invalid-golfers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+            showAlert(`✅ Cleanup complete! Removed ${data.removed_invalid + data.removed_no_stats} invalid entries`, 'success');
+            showAlert(`📊 ${data.remaining_golfers} valid golfers remaining`, 'info');
+            
+            // Refresh admin stats
+            loadAdminStats();
+        } else {
+            showAlert('❌ Cleanup failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        showAlert('❌ Cleanup failed: ' + error.message, 'error');
+    }
+}
+
 async function createTestTournament() {
     if (!currentUser || !currentUser.isAdmin) {
         showAlert('Admin access required', 'error');
