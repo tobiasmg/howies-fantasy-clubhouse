@@ -2550,6 +2550,92 @@ function debounce(func, wait) {
     };
 }
 
+// 1. Add debugging to setupEventListeners function
+function setupEventListeners() {
+    console.log('🔍 Setting up event listeners...');
+    
+    const loginForm = document.getElementById('loginForm');
+    console.log('📝 Login form found:', loginForm ? 'YES' : 'NO');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+        console.log('✅ Login event listener attached');
+    } else {
+        console.error('❌ Login form not found!');
+    }
+    
+    // Add register form listener if it exists
+    const registerForm = document.getElementById('registerForm');
+    if (registerForm) {
+        registerForm.addEventListener('submit', handleRegister);
+        console.log('✅ Register event listener attached');
+    }
+}
+
+// 2. Add debugging to handleLogin function
+async function handleLogin(e) {
+    console.log('🔥 Login function called!', e);
+    e.preventDefault();
+    
+    const email = document.getElementById('loginEmail').value;
+    const password = document.getElementById('loginPassword').value;
+    
+    console.log('📧 Email:', email);
+    console.log('🔑 Password length:', password ? password.length : 0);
+    
+    if (!email || !password) {
+        showAlert('Please enter both email and password', 'error');
+        return;
+    }
+    
+    try {
+        console.log('🌐 Making API call to:', `${API_BASE}/auth/login`);
+        
+        const response = await fetch(`${API_BASE}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+
+        console.log('📡 Response status:', response.status);
+        
+        const data = await response.json();
+        console.log('📦 Response data:', data);
+        
+        if (response.ok) {
+            localStorage.setItem('token', data.token);
+            currentUser = data.user;
+            updateNavigation(true);
+            showView('home');
+            showAlert('Login successful!', 'success');
+        } else {
+            showAlert(data.error || 'Login failed', 'error');
+        }
+    } catch (error) {
+        console.error('❌ Login error:', error);
+        showAlert('Login failed. Please try again.', 'error');
+    }
+}
+
+// 3. Test if the login form exists when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 DOM Content Loaded');
+    
+    setTimeout(() => {
+        const loginForm = document.getElementById('loginForm');
+        console.log('⏰ Login form check after timeout:', loginForm ? 'EXISTS' : 'MISSING');
+        
+        if (!loginForm) {
+            console.log('🔍 Available forms:', document.querySelectorAll('form'));
+        }
+    }, 1000);
+    
+    checkAuthStatus();
+    loadTournaments();
+    setupEventListeners();
+    setupTeamBuilderListeners();
+});
+
 // Add event listener for Enter key in search
 document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keypress', function(e) {
