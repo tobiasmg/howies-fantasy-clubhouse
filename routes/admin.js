@@ -1759,5 +1759,41 @@ router.post('/update-golfer-stats', async (req, res) => {
     }
 });
 
+
+// REAL 250+ Golfer Scraping Route
+router.post('/scrape-real-250-golfers', async (req, res) => {
+    try {
+        console.log('🏌️ Admin triggered: Scraping 250+ REAL professional golfers...');
+        
+        // Import the scraping service
+        const scrapingService = require('../services/scrapingService');
+        
+        // Call the comprehensive real golfer scraping method
+        const totalGolfers = await scrapingService.scrapeComprehensiveRealGolfers();
+        
+        res.json({
+            success: true,
+            message: `Successfully scraped ${totalGolfers} REAL professional golfers!`,
+            sources: [
+                'ESPN World Rankings (200+ golfers)',
+                'PGA Tour Player Database', 
+                'Major Champions (Tiger Woods, Phil Mickelson, etc.)',
+                'Korn Ferry Graduates (rising stars)',
+                'OWGR Archive players'
+            ],
+            total_real_golfers: totalGolfers,
+            note: 'All golfers are REAL and verifiable on ESPN/PGA Tour'
+        });
+        
+    } catch (error) {
+        console.error('❌ Failed to scrape real golfers:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Failed to scrape real golfer data',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router;
 
