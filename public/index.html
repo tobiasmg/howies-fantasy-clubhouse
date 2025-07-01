@@ -631,6 +631,195 @@
             .golfers-grid {
                 grid-template-columns: 1fr;
             }
+
+            /* Enhanced Admin Dashboard Styles */
+        .admin-action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .admin-action-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            border: 2px solid #e9ecef;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .admin-action-item:hover {
+            border-color: #2a5298;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+
+        .admin-action-item h4 {
+            color: #1e3c72;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .admin-action-item p {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            line-height: 1.4;
+            min-height: 60px;
+        }
+
+        .tournament-management-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .tournament-management-item:hover {
+            border-color: #2a5298;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .tournament-info h4 {
+            margin: 0 0 0.5rem 0;
+            color: #1e3c72;
+            font-size: 1.2rem;
+        }
+
+        .tournament-info p {
+            margin: 0.25rem 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .tournament-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .team-management-item {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .team-management-item:hover {
+            border-color: #2a5298;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .team-user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .team-user-header h4 {
+            margin: 0;
+            color: #1e3c72;
+            font-size: 1.1rem;
+        }
+
+        .team-user-header p {
+            margin: 0.25rem 0 0 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .user-teams-list {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .user-team-item {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+
+        .user-team-item:hover {
+            background: #e3f2fd;
+            border-color: #2a5298;
+        }
+
+        .user-team-item strong {
+            color: #1e3c72;
+            font-size: 1rem;
+        }
+
+        .user-team-item small {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336, #d32f2f);
+            color: white;
+            border: none;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #d32f2f, #b71c1c);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(244, 67, 54, 0.4);
+        }
+
+        /* Responsive improvements for admin dashboard */
+        @media (max-width: 768px) {
+            .admin-action-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .tournament-management-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .tournament-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+            
+            .team-user-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .user-team-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+            
+            .user-team-item > div:last-child {
+                width: 100%;
+                justify-content: flex-end;
+            }
         }
     </style>
 </head>
@@ -755,6 +944,137 @@
                         <div class="stat-label">Active Golfers</div>
                     </div>
                 </div>
+
+                <!-- Professional Golfer Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🏌️ Professional Golfer Database</h2>
+                    </div>
+                    
+                    <div style="margin-bottom: 1.5rem;">
+                        <div class="alert alert-info">
+                            <strong>Professional Features Available:</strong><br>
+                            Load 250+ real professional golfers including Tiger Woods, Rory McIlroy, Scottie Scheffler, and the complete PGA Tour roster with real earnings, world rankings, and career statistics.
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                        <button class="btn btn-success" onclick="loadCompleteDatabase()">
+                            <i class="fas fa-download"></i> Load 250+ Professional Golfers
+                        </button>
+                        <button class="btn btn-secondary" onclick="checkGolferCount()">
+                            <i class="fas fa-count"></i> Check Current Count
+                        </button>
+                        <button class="btn btn-warning" onclick="createTestTournament()">
+                            <i class="fas fa-plus"></i> Create Test Tournament
+                        </button>
+                    </div>
+
+                    <div id="golferStatsDisplay" style="display: none;">
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-number" id="professionalGolfers">-</div>
+                                <div class="stat-label">Professional Golfers</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="legendaryGolfers">-</div>
+                                <div class="stat-label">Hall of Fame Players</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="activeStars">-</div>
+                                <div class="stat-label">Current Stars</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-number" id="countriesRepresented">-</div>
+                                <div class="stat-label">Countries</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Management - Enhanced with better descriptions -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🔧 System Management</h2>
+                    </div>
+                    
+                    <div class="admin-action-grid">
+                        <div class="admin-action-item">
+                            <h4><i class="fas fa-database"></i> Setup Database</h4>
+                            <p>Initializes database tables and adds sample data. Use this if tables are missing or you need to reset to default state.</p>
+                            <button class="btn" onclick="triggerDatabaseSetup()">
+                                Setup Database
+                            </button>
+                        </div>
+                        
+                        <div class="admin-action-item">
+                            <h4><i class="fas fa-download"></i> Update Golfer Data</h4>
+                            <p>Scrapes latest golfer rankings from OWGR and ESPN. Updates world rankings and tournament scores.</p>
+                            <button class="btn" onclick="triggerScraping()">
+                                Update Golfer Data
+                            </button>
+                        </div>
+                        
+                        <div class="admin-action-item">
+                            <h4><i class="fas fa-heart"></i> System Health</h4>
+                            <p>Checks database connection, scraping services, and overall system status.</p>
+                            <button class="btn btn-secondary" onclick="checkHealth()">
+                                Check System Health
+                            </button>
+                        </div>
+                        
+                        <div class="admin-action-item">
+                            <h4><i class="fas fa-rocket"></i> System Upgrade</h4>
+                            <p>Advanced web-based upgrade system for enhanced features and professional data.</p>
+                            <a href="/upgrade.html" target="_blank" class="btn btn-warning">
+                                System Upgrade
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tournament Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">🏆 Tournament Management</h2>
+                        <button class="btn btn-small" onclick="loadTournamentManagement()">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                    
+                    <div id="tournamentManagementContainer">
+                        <div class="empty-state">
+                            <i class="fas fa-golf-ball"></i>
+                            <p>Loading tournaments...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Team Management -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2 class="card-title">👥 User Team Management</h2>
+                        <button class="btn btn-small" onclick="loadTeamManagement()">
+                            <i class="fas fa-refresh"></i> Refresh
+                        </button>
+                    </div>
+                    
+                    <div style="margin-bottom: 1rem;">
+                        <input type="text" id="userSearchInput" class="form-control" placeholder="Search users..." style="max-width: 300px; display: inline-block;">
+                        <button class="btn btn-secondary" onclick="searchUsers()" style="margin-left: 0.5rem;">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </div>
+                    
+                    <div id="teamManagementContainer">
+                        <div class="empty-state">
+                            <i class="fas fa-users"></i>
+                            <p>Search for users to manage their teams...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
                 <!-- Professional Golfer Management -->
                 <div class="card">
